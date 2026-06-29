@@ -106,4 +106,9 @@ print("Carte prête !")
 # ==========================================
 # 5. AFFICHAGE
 # ==========================================
-m
+import streamlit as st
+from streamlit_folium import st_folium
+
+# Affichage propre dans Streamlit
+st.title("Carte des Axes de Ruissellement (95)")
+st_folium(m, width=800, height=600, use_container_width=True)
