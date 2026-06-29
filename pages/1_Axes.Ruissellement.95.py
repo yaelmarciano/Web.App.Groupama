@@ -22,9 +22,9 @@ gdf_axes_4326 = gdf_axes.to_crs(epsg=4326)
 print("Chargement des contours EPCI...")
 # --- Données 2 : Les Contours EPCI ---
 try:
-    gdf_epci = gpd.read_file("epci-100m.geojson.gz", engine="fiona")
+    gdf_epci = gpd.read_file("epci-100m.geojson", engine="fiona")
 except Exception:
-    gdf_epci = gpd.read_file("epci-100m.geojson.gz",driver="GeoJSON")
+    gdf_epci = gpd.read_file("epci-100m.geojson",driver="GeoJSON")
 
 # Conversion en degrés pour Folium
 gdf_epci_4326 = gdf_epci.to_crs(epsg=4326)
