@@ -6,18 +6,19 @@ import branca.colormap as cm
 import folium
 import geopandas as gpd
 from folium.plugins import Fullscreen
+from IPython.display import HTML, display
 from shapely.geometry import shape
 
 # ==============================================================================
-# 2. CHARGEMENT DES DEUX DONNÉES LOCALES (DÉPARTEMENTS & EPCI)
+# 2. CHARGEMENT DES DEUX DONNÉES (DÉPARTEMENTS & EPCI)
 # ==============================================================================
-print("1/4 - Lecture du GeoJSON local des départements...")
-# Utilise le fichier 'departements.geojson' que tu as placé dans ton dossier
+print("1/4 - Lecture du GeoJSON des départements...")
+# Lit le fichier directement dans ton dossier GitHub
 with open("departements.geojson", "r", encoding="utf-8") as f:
     departements_geojson = json.load(f)
 
 print("2/4 - Lecture et SIMPLIFICATION du GeoJSON des EPCI...")
-# Utilise le fichier 'epci-100m.geojson' déjà présent dans ton dossier
+# Lit le fichier directement dans ton dossier GitHub
 with open("epci-100m.geojson", "r", encoding="utf-8") as f:
     epci_data = json.load(f)
 
@@ -33,7 +34,7 @@ for feat in epci_data["features"]:
 
 gdf_epci = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
-# Simplification pour que la carte se génère rapidement
+# Simplification pour que la carte s'affiche rapidement
 gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
     tolerance=0.005, preserve_topology=True
 )
@@ -181,7 +182,7 @@ Fullscreen(
 ).add_to(m)
 
 # ==============================================================================
-# 5. SUPERPOSITION DES COUCHES (DÉPARTEMENTS EN FOND COULEUR, EPCI PAR-DESSUS)
+# 5. SUPERPOSITION DES COUCHES (DÉPARTEMENTS EN BAS, EPCI EN HAUT)
 # ==============================================================================
 
 
@@ -227,7 +228,7 @@ folium.GeoJson(
 ).add_to(m)
 
 # ==============================================================================
-# 6. HABILLAGE ET LEGENDE
+# 6. HABILLAGE ET RENDU COMPLET
 # ==============================================================================
 colormap.add_to(m)
 
@@ -244,5 +245,5 @@ title_html = """
 m.get_root().html.add_child(folium.Element(title_html))
 folium.LayerControl().add_to(m)
 
-print("4/4 - Carte prête !")
-m
+print("4/4 - Affichage graphique de la carte...")
+display(HTML(m._repr_html_()))
