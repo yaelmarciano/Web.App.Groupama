@@ -9,7 +9,7 @@ from folium.plugins import Fullscreen
 from shapely.geometry import shape
 from streamlit_folium import st_folium
 
-# Configuration de la page
+# Configuration de la page Streamlit
 st.set_page_config(layout="wide")
 st.title("Carte interactive des arrêtés CatNat par Intercommunalité")
 st.subheader("Période 2000-2026 | Péril : Inondations et Coulées de Boue")
@@ -21,7 +21,6 @@ st.subheader("Période 2000-2026 | Péril : Inondations et Coulées de Boue")
 
 @st.cache_data
 def load_csv():
-    # Cherche le fichier directement à la racine du dépôt GitHub
     chemin_csv = "catnat.par_epci.csv"
     data_lines = []
     encodages = ["utf-8", "cp1252", "latin1"]
@@ -67,7 +66,6 @@ with st.spinner("Analyse du fichier de données CatNat..."):
 
 @st.cache_data
 def load_geojson():
-    # Cherche le GeoJSON à la racine du dépôt GitHub
     chemin_geojson = "epci-100m.geojson"
     with open(chemin_geojson, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -90,7 +88,7 @@ with st.spinner("Génération des fonds géographiques..."):
     gdf = load_geojson()
 
 # =========================================================================
-# 3. FUSION EXACTE
+# 3. FUSION EXACTE DES DONNÉES
 # =========================================================================
 gdf_final = gdf.merge(
     df_epci_counts, left_on="siren_geojson", right_on="epci_code", how="left"
@@ -108,7 +106,7 @@ colormap = cm.LinearColormap(
     colors=couleurs_degrade,
     index=seuils_visuels,
     vmin=0,
-    vmax=vmax if "vmax" in locals() else vrai_max,
+    vmax=vrai_max,
     caption="Intensité progressive du nombre d'arrêtés CatNat par EPCI",
 )
 
@@ -135,8 +133,9 @@ xmin, ymin, xmax, ymax = gdf_final.total_bounds
 m = folium.Map(tiles="CartoDB positron", zoom_control=True)
 m.fit_bounds([[ymin, xmin], [ymax, xmax]])
 
+# Bouton Plin écran placé à gauche pour ne pas entrer en conflit avec la légende
 Fullscreen(
-    position="topright",
+    position="topleft",
     title="Plein écran",
     title_cancel="Quitter",
     force_separate_button=True,
@@ -158,6 +157,7 @@ folium.GeoJson(
 
 colormap.add_to(m)
 
+# Encart de titre HTML personnalisé directement fixé sur la carte
 titre_html = f"""
              <div style="position: fixed; 
                          top: 15px; left: 70px; width: 460px; height: 55px; 
@@ -170,6 +170,6 @@ titre_html = f"""
 m.get_root().html.add_child(folium.Element(titre_html))
 
 # =========================================================================
-# 6. RENDU DE LA CARTE DANS STREAMLIT
+# 6. RENDU DE LA CARTE INTERACTIVE DANS STREAMLIT
 # =========================================================================
 st_folium(m, width=1100, height=650, returned_objects=[])
