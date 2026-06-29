@@ -1,43 +1,60 @@
-# ==============================================================================
-# 1. IMPORTS
+
+    
+  # ==============================================================================
+# 1. IMPORTS (Nettoyés de IPython qui faisait planter Streamlit)
 # ==============================================================================
 import json
 import branca.colormap as cm
 import folium
 import geopandas as gpd
+import pandas as pd
+import streamlit as st
 from folium.plugins import Fullscreen
-from IPython.display import HTML, display
 from shapely.geometry import shape
+from streamlit_folium import st_folium
+
+# Configuration de la page Streamlit (Pour que la carte prenne toute la largeur)
+st.set_page_config(layout="wide")
+st.title("Cumul annuel de précipitations")
+st.subheader("Rapport à la référence 1976-2005 pour l'horizon lointain")
 
 # ==============================================================================
-# 2. CHARGEMENT DES DEUX DONNÉES (DÉPARTEMENTS & EPCI)
+# 2. CHARGEMENT DES DEUX GEOJSON LOCAUX (Depuis ton dépôt GitHub)
 # ==============================================================================
-print("1/4 - Lecture du GeoJSON des départements...")
-# Lit le fichier directement dans ton dossier GitHub
-with open("departements.geojson", "r", encoding="utf-8") as f:
-    departements_geojson = json.load(f)
 
-print("2/4 - Lecture et SIMPLIFICATION du GeoJSON des EPCI...")
-# Lit le fichier directement dans ton dossier GitHub
-with open("epci-100m.geojson", "r", encoding="utf-8") as f:
-    epci_data = json.load(f)
 
-rows = []
-for feat in epci_data["features"]:
-    rows.append(
-        {
-            "siren": feat["properties"]["code"],
-            "nom": feat["properties"]["nom"],
-            "geometry": shape(feat["geometry"]),
-        }
+@st.cache_data
+def load_data_climat():
+    # Lecture du fichier départements (situé à la racine de ton GitHub)
+    with open("departements.geojson", "r", encoding="utf-8") as f:
+        departements_geojson = json.load(f)
+
+    # Lecture du fichier EPCI (situé à la racine de ton GitHub)
+    with open("epci-100m.geojson", "r", encoding="utf-8") as f:
+        epci_data = json.load(f)
+
+    rows = []
+    for feat in epci_data["features"]:
+        rows.append(
+            {
+                "siren": feat["properties"]["code"],
+                "nom": feat["properties"]["nom"],
+                "geometry": shape(feat["geometry"]),
+            }
+        )
+
+    gdf_epci = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
+
+    # CRUCIAL : Simplification pour que Streamlit reste très rapide en ligne
+    gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
+        tolerance=0.005, preserve_topology=True
     )
 
-gdf_epci = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
+    return departements_geojson, gdf_epci
 
-# Simplification pour que la carte s'affiche rapidement
-gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
-    tolerance=0.005, preserve_topology=True
-)
+
+with st.spinner("Chargement des fonds cartographiques..."):
+    departements_geojson, gdf_epci = load_data_climat()
 
 xmin, ymin, xmax, ymax = gdf_epci.total_bounds
 
@@ -163,30 +180,25 @@ colormap = cm.LinearColormap(
 # ==============================================================================
 # 4. INITIALISATION DE LA CARTE
 # ==============================================================================
-print("3/4 - Initialisation de la carte...")
 m = folium.Map(
-    location=[46.5, 2.5],
-    zoom_start=6,
-    tiles="CartoDB positron",
-    control_scale=True,
-    prefer_canvas=True,
+    tiles="cartodbpositron",
+    prefer_canvas=True,  # Rendu Canvas obligatoire pour économiser la mémoire en ligne
 )
-
 m.fit_bounds([[ymin, xmin], [ymax, xmax]])
 
 Fullscreen(
-    position="topright",
+    position="topleft",
     title="Plein écran",
     title_cancel="Quitter",
     force_separate_button=True,
 ).add_to(m)
 
 # ==============================================================================
-# 5. SUPERPOSITION DES COUCHES (DÉPARTEMENTS EN BAS, EPCI EN HAUT)
+# 5. CONFIGURATION DES COUCHES GRAPHIQUES
 # ==============================================================================
 
 
-# --- A. Fond de couleur Départemental ---
+# --- A. Couche Départements (Couleurs de fond sans bordure) ---
 def style_departement(feature):
     dep_code = feature["properties"].get("code", "")
     value = departement_values.get(dep_code, 100)
@@ -206,7 +218,7 @@ folium.GeoJson(
 ).add_to(m)
 
 
-# --- B. Contours Fins des EPCI ---
+# --- B. Couche EPCI (Contours noirs très fins) ---
 def style_epci(feature):
     return {"fillOpacity": 0, "color": "#111111", "weight": 0.5}
 
@@ -228,12 +240,13 @@ folium.GeoJson(
 ).add_to(m)
 
 # ==============================================================================
-# 6. HABILLAGE ET RENDU COMPLET
+# 6. HABILLAGE ET RENDU FINAL POUR STREAMLIT
 # ==============================================================================
 colormap.add_to(m)
 
+# Titre flottant injecté sur la carte
 title_html = """
-<div style="position: fixed; top: 10px; left: 60px; z-index: 9999; background: white; padding: 10px 14px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); font-family: Arial, sans-serif; max-width: 380px;">
+<div style="position: fixed; top: 15px; left: 70px; z-index: 9999; background: white; padding: 10px 14px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); font-family: Arial, sans-serif; max-width: 380px;">
     <div style="font-size:12px; font-weight:bold; color:#222;">
         Cumul annuel de précipitations : rapport (%) à référence 1976-2005<br>pour l'horizon lointain (2071-2100)
     </div>
@@ -245,5 +258,5 @@ title_html = """
 m.get_root().html.add_child(folium.Element(title_html))
 folium.LayerControl().add_to(m)
 
-print("4/4 - Affichage graphique de la carte...")
-display(HTML(m._repr_html_()))
+# Rendu officiel via streamlit_folium (sans IPython)
+st_folium(m, width=1100, height=650, returned_objects=[])
