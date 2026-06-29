@@ -18,9 +18,9 @@ st.write(
 
 # Liste de ce qu'il y a sur ton site
 st.info("""
-* **Page 1 : Carte Interactive** : Contours des EPCI.
-* **Page 2 Carte Interactive**:  Nombre d'arrêtés CATNAT (cumulés sur la pèriode 2000-2026) pour le péril Inondations et Coulées de Boue.
-* **Page 3 Carte Interactive** Moyenne des zonages Inondation par EPCI
+* **Page 1 : Carte Interactive** : Contours des EPCI
+* **Page 2 Carte Interactive**:  Nombre d'arrêtés CATNAT (cumulés sur la pèriode 2000-2026) pour le péril "Inondations et/ou Coulées de Boue"
+* **Page 3 Carte Interactive**: Moyenne des zonages Inondation par EPCI
 * **Page 4 Carte Interactive**: Axes de ruissellement pour le Val d'Oise (95)
 """)
 
