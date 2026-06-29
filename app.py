@@ -6,14 +6,14 @@ st.set_page_config(
 )
 
 # Titre principal de ton site web
-st.title("Bienvenue sur mon application de cartographie ! 🗺️")
+st.title("Bienvenue sur la Web App Résilience Inondation! 🗺️")
 
 st.markdown("---")
 
 # Message d'explication pour les utilisateurs
 st.write("### 👈 Utilisez le menu à gauche pour naviguer")
 st.write(
-    "Dans le menu latéral, vous trouverez les différents codes et cartes interactives que j'ai préparés :"
+    "Dans le menu latéral, vous trouverez les différents codes et cartes interactives  :"
 )
 
 # Liste de ce qu'il y a sur ton site
