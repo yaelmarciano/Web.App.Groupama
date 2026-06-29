@@ -22,6 +22,8 @@ st.info("""
 * **Page 2 Carte Interactive**:  Nombre d'arrêtés CATNAT (cumulés sur la pèriode 2000-2026) pour le péril "Inondations et/ou Coulées de Boue"
 * **Page 3 Carte Interactive**: Moyenne des zonages Inondation par EPCI
 * **Page 4 Carte Interactive**: Axes de ruissellement pour le Val d'Oise (95)
+* **Page 5 Carte Interactive**: Cumul annuel de précipitations modérées: rapport % à référence 1976-2005 pour l'horizon lointain (2071-2100)
+
 """)
 
 st.markdown("---")
