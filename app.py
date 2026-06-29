@@ -18,8 +18,9 @@ st.write(
 
 # Liste de ce qu'il y a sur ton site
 st.info("""
-* **Page 1 : Carte Interactive** : Superposition des axes de ruissellement (Val-d'Oise) et des contours des EPCI avec surbrillance au survol.
-* **Vos autres codes** : Ils apparaîtront juste en dessous dans le menu dès qu'on les aura ajoutés !
+* **Page 1 : Carte Interactive** : Contours des EPCI.
+* **Page 2 Carte Interactive**:  Nombre d'arrêtés CATNAT (cumulés sur la pèriode 2000-2026) pour le péril Inondations et Coulées de Boue.
+* **Page 4 Carte Interactive**: Axes de ruissellement pour le Val d'Oise (95)
 """)
 
 st.markdown("---")
