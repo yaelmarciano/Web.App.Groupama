@@ -6,7 +6,7 @@ from folium.plugins import Fullscreen
 # Configuration de la page Streamlit (largeur maximale pour la carte)
 st.set_page_config(layout="wide")
 
-st.title("Carte interactive des EPCI - Risque Ruissellement")
+st.title("Carte interactive des EPCI")
 
 # =========================
 # 1. CHEMIN DU FICHIER (Adapté pour GitHub / Local)
