@@ -6,27 +6,23 @@ from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
 # ==============================================================================
-# 1. CHARGEMENT DONNÉES
+# 1. DONNÉES
 # ==============================================================================
 
-chemin_dept = "departements.geojson"
-chemin_epci = "epci-100m.geojson"
+gdf_dept = gpd.read_file("departements.geojson")
+gdf_epci = gpd.read_file("epci-100m.geojson")
 
-gdf_dept = gpd.read_file(chemin_dept)
-gdf_epci = gpd.read_file(chemin_epci)
+if gdf_dept.crs:
+    gdf_dept = gdf_dept.to_crs(4326)
 
-if gdf_dept.crs is not None:
-    gdf_dept = gdf_dept.to_crs(epsg=4326)
-
-if gdf_epci.crs is not None:
-    gdf_epci = gdf_epci.to_crs(epsg=4326)
+if gdf_epci.crs:
+    gdf_epci = gdf_epci.to_crs(4326)
 
 gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
     tolerance=0.008,
     preserve_topology=True
 )
 
-# Colonnes
 colonne_trouvee = "nom"
 for c in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
     if c in gdf_dept.columns:
@@ -53,35 +49,60 @@ m = folium.Map(
 Fullscreen().add_to(m)
 
 # ==============================================================================
-# 3. TES COULEURS (INCHANGÉES)
+# 3. 🔥 TON CODE ORIGINAL (INCHANGÉ)
 # ==============================================================================
 
-def style_dept(feature):
-    nom = str(feature["properties"].get(colonne_trouvee, ""))
-    code = str(feature["properties"].get("code", ""))
+def determiner_style_dept(feature):
+    nom_actuel = str(feature['properties'].get(colonne_trouvee, ''))
+    code_actuel = str(feature['properties'].get('code', ''))
 
     if (
-        "Landes" in nom or code == "40" or
-        "Var" in nom or code == "83" or
-        "Gard" in nom or code == "30" or
-        "Hérault" in nom or code == "34" or
-        "Gironde" in nom or code == "33" or
-        "Paris" in nom or code == "75"
+        "Landes" in nom_actuel or code_actuel == "40" or
+        "Var" in nom_actuel or code_actuel == "83" or
+        "Gard" in nom_actuel or code_actuel == "30" or
+        "Hérault" in nom_actuel or code_actuel == "34" or
+        "Gironde" in nom_actuel or code_actuel == "33" or
+        "Nord" in nom_actuel or code_actuel == "59" or
+        "Hauts-de-Seine" in nom_actuel or code_actuel == "92" or
+        "Val-de-Marne" in nom_actuel or code_actuel == "94" or
+        "Bouches-du-Rhône" in nom_actuel or code_actuel == "13" or
+        "Seine-Saint-Denis" in nom_actuel or code_actuel == "93" or
+        "Paris" in nom_actuel or code_actuel == "75" or
+        "Haute-Corse" in nom_actuel or code_actuel in ["2B", "2b"]
     ):
         couleur = "#4B0082"
 
     elif (
-        "Seine-Maritime" in nom or code == "76"
+        "Seine-Maritime" in nom_actuel or code_actuel == "76" or
+        "Eure" in nom_actuel or code_actuel == "27" or
+        "Somme" in nom_actuel or code_actuel == "80" or
+        "Pyrénées-Orientales" in nom_actuel or code_actuel == "66" or
+        "Aude" in nom_actuel or code_actuel == "11" or
+        "Doubs" in nom_actuel or code_actuel == "25" or
+        "Jura" in nom_actuel or code_actuel == "39" or
+        "Yvelines" in nom_actuel or code_actuel == "78" or
+        "Essonne" in nom_actuel or code_actuel == "91" or
+        "Vaucluse" in nom_actuel or code_actuel == "84" or
+        "Puy-de-Dôme" in nom_actuel or code_actuel == "63" or
+        "Côte-d'Or" in nom_actuel or code_actuel == "21" or
+        "Ain" in nom_actuel or code_actuel == "01" or
+        "Drôme" in nom_actuel or code_actuel == "26" or
+        "Isère" in nom_actuel or code_actuel == "38" or
+        "Corse-du-Sud" in nom_actuel or code_actuel in ["2A", "2a"]
     ):
         couleur = "#FF1493"
 
     elif (
-        "Loire-Atlantique" in nom or code == "44"
+        "Hautes-Pyrénées" in nom_actuel or code_actuel == "65" or
+        "Loire-Atlantique" in nom_actuel or code_actuel == "44" or
+        "Vendée" in nom_actuel or code_actuel == "85"
     ):
         couleur = "#FF69B4"
 
     elif (
-        "Gers" in nom or code == "32"
+        "Gers" in nom_actuel or code_actuel == "32" or
+        "Pyrénées-Atlantiques" in nom_actuel or code_actuel == "64" or
+        "Finistère" in nom_actuel or code_actuel == "29"
     ):
         couleur = "#FFB6C1"
 
@@ -90,18 +111,20 @@ def style_dept(feature):
 
     return {
         "fillColor": couleur,
-        "fillOpacity": 0.85,
+        "fillOpacity": 0.85 if couleur != "#f8f9fa" else 0.4,
         "weight": 0,
         "color": "none"
     }
 
 folium.GeoJson(
     gdf_dept,
-    style_function=style_dept
+    name="Couleurs Départements (Fond)",
+    style_function=determiner_style_dept,
+    interactive=False
 ).add_to(m)
 
 # ==============================================================================
-# 4. EPCI (CLICK = NOM + SIREN)
+# 4. EPCI (SAFE + CLICK POPUP)
 # ==============================================================================
 
 def style_epci(feature):
@@ -114,18 +137,15 @@ def style_epci(feature):
 def highlight_epci(feature):
     return {
         "color": "#FF0000",
-        "weight": 2
+        "weight": 2.5
     }
 
 def popup_epci(feature):
-    props = feature["properties"]
-    nom = props.get(col_nom_epci, "N/A")
-    code = props.get(col_code_epci, "N/A")
+    p = feature["properties"]
+    nom = p.get(col_nom_epci, "N/A")
+    code = p.get(col_code_epci, "N/A")
 
-    return folium.Popup(
-        f"<b>{nom}</b><br>SIREN : {code}",
-        max_width=300
-    )
+    return folium.Popup(f"<b>{nom}</b><br>SIREN : {code}", max_width=300)
 
 folium.GeoJson(
     gdf_epci,
@@ -135,35 +155,39 @@ folium.GeoJson(
 ).add_to(m)
 
 # ==============================================================================
-# 5. LÉGENDE
+# 5. TON CODE LÉGENDE ORIGINAL (ON NE TOUCHE PAS)
 # ==============================================================================
 
 html_legende = """
 <div style="
-position: fixed;
-top: 20px;
-right: 20px;
-z-index:9999;
-background:white;
-padding:15px;
-border-radius:8px;
-box-shadow:0 0 15px rgba(0,0,0,0.2);
-font-size:13px;
-width:320px;
+    position: fixed; 
+    top: 20px; right: 20px; width: 320px; 
+    z-index:9999; font-family: Arial; font-size:13px;
+    background-color: white; padding: 15px; border-radius: 8px; 
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
 ">
-<b>Exposition au ruissellement</b><br><br>
+    <div style="font-weight: bold; font-size: 15px;">
+        Exposition au Risque de Ruissellement 
+    </div>
 
-<div>■ violet : zones fortes</div>
-<div>■ rose : zones moyennes</div>
-<div>■ beige : zones faibles</div>
+    <div style="margin-top:10px;">
+        <div><span style="color:#4B0082;">■</span> Supérieur à 15 %</div>
+        <div><span style="color:#FF1493;">■</span> 12 - 15 %</div>
+        <div><span style="color:#FF69B4;">■</span> 9 - 12 %</div>
+        <div><span style="color:#FFB6C1;">■</span> 6 - 9 %</div>
+        <div><span style="color:#f8f9fa;">■</span> 0 %</div>
+    </div>
 
+    <div style="margin-top:10px; font-size:11px;">
+        Contours blancs : EPCI
+    </div>
 </div>
 """
 
 m.get_root().html.add_child(folium.Element(html_legende))
 
 # ==============================================================================
-# 6. AFFICHAGE STREAMLIT
+# 6. AFFICHAGE
 # ==============================================================================
 
 st_folium(m, width=1000, height=800)
