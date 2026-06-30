@@ -7,6 +7,22 @@ from folium.plugins import Fullscreen
 st.set_page_config(layout="wide")
 
 st.title("Carte interactive des EPCI")
+st.markdown(
+    """
+    <div style="
+        color: #777;
+        font-size: 13px;
+        margin-top: -10px;
+        margin-bottom: 15px;
+        line-height: 1.4;
+    ">
+    Source : <b>Contours administratifs de la France</b> — données issues de <i>data.gouv.fr</i><br>
+    Jeu de données contenant les principaux contours administratifs (communes, départements, régions, DROM/COM) en format GeoJSON.<br>
+    Version simplifiée utilisée pour la visualisation cartographique.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # =========================
 # 1. CHEMIN DU FICHIER (Adapté pour GitHub / Local)
