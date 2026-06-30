@@ -1,191 +1,149 @@
+import json
 import streamlit as st
 import folium
+import branca.colormap as cm
 from folium.plugins import Fullscreen
-import geopandas as gpd
 from streamlit_folium import st_folium
 
+# ==============================================================================
+# 1. PAGE STREAMLIT
+# ==============================================================================
 st.set_page_config(layout="wide")
 st.title("Exposition au risque de ruissellement")
 
 # ==============================================================================
-# 1. CHARGEMENT DES DONNÉES (GitHub raw)
+# 2. CHARGEMENT GEOJSON (SANS GEOPANDAS => donc pas de shapely/pyproj/fiona)
 # ==============================================================================
+@st.cache_data
+def load_geojson():
+    with open("departements.geojson", "r", encoding="utf-8") as f:
+        departements = json.load(f)
 
-chemin_dept = "https://raw.githubusercontent.com/VOTRE_COMPTE/VOTRE_REPO/main/departements.geojson"
-chemin_epci = "https://raw.githubusercontent.com/VOTRE_COMPTE/VOTRE_REPO/main/epci-100m.geojson"
+    with open("epci-100m.geojson", "r", encoding="utf-8") as f:
+        epci = json.load(f)
 
-gdf_dept = gpd.read_file(chemin_dept)
-gdf_epci = gpd.read_file(chemin_epci)
+    return departements, epci
 
-if gdf_dept.crs is not None:
-    gdf_dept = gdf_dept.to_crs(epsg=4326)
 
-if gdf_epci.crs is not None:
-    gdf_epci = gdf_epci.to_crs(epsg=4326)
+departements_geojson, epci_geojson = load_geojson()
 
-gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
-    tolerance=0.008,
-    preserve_topology=True
+# ==============================================================================
+# 3. DONNÉES (codes département → valeurs)
+# ==============================================================================
+departement_values = {
+    "59": 104, "62": 104, "02": 104, "08": 104, "57": 104, "67": 104,
+    "75": 100, "92": 103, "93": 100, "94": 100,
+    "33": 100, "34": 104, "13": 100, "06": 100,
+    "40": 100, "83": 100, "30": 104,
+    "2A": 100, "2B": 100
+}
+
+colors_scale = [
+    "#6b3a1f", "#a0672a", "#c8a96e", "#e8d9b5",
+    "#f5f0e8", "#c8e8d8", "#8dd0c0", "#4db8a8",
+    "#00897b"
+]
+
+index_vals = [65, 75, 85, 95, 100, 105, 115, 125, 135]
+
+colormap = cm.LinearColormap(
+    colors=colors_scale,
+    vmin=65,
+    vmax=135,
+    index=index_vals,
+    caption="Exposition (%)"
 )
 
-# Détection colonnes départements
-colonne_trouvee = "nom"
-for col in ['nom', 'NOM', 'nom_dept', 'NOM_DEPT', 'Nom']:
-    if col in gdf_dept.columns:
-        colonne_trouvee = col
-        break
-
-# Détection colonnes EPCI
-colonne_code_epci = "siren" if "siren" in gdf_epci.columns else ("code" if "code" in gdf_epci.columns else "CODE")
-colonne_nom_epci = "nom" if "nom" in gdf_epci.columns else ("NOM" if "NOM" in gdf_epci.columns else "NOM_EPCI")
-
 # ==============================================================================
-# 2. CARTE FOLIUM
+# 4. CARTE FOLIUM
 # ==============================================================================
-
 m = folium.Map(
     location=[46.6, 2.5],
     zoom_start=6,
-    tiles="OpenStreetMap",
+    tiles="cartodbpositron",
     prefer_canvas=True
 )
 
 Fullscreen(
     position="topleft",
-    title="Passer en plein écran",
-    title_cancel="Quitter le plein écran",
+    title="Plein écran",
+    title_cancel="Quitter",
     force_separate_button=True
 ).add_to(m)
 
 # ==============================================================================
-# 3. STYLE DÉPARTEMENTS
+# 5. STYLE DÉPARTEMENTS
 # ==============================================================================
-
-def determiner_style_dept(feature):
-    nom_actuel = str(feature['properties'].get(colonne_trouvee, ''))
-    code_actuel = str(feature['properties'].get('code', ''))
-
-    if (
-        "Landes" in nom_actuel or code_actuel == "40" or
-        "Var" in nom_actuel or code_actuel == "83" or
-        "Gard" in nom_actuel or code_actuel == "30" or
-        "Hérault" in nom_actuel or code_actuel == "34" or
-        "Gironde" in nom_actuel or code_actuel == "33" or
-        "Nord" in nom_actuel or code_actuel == "59" or
-        "Hauts-de-Seine" in nom_actuel or code_actuel == "92" or
-        "Val-de-Marne" in nom_actuel or code_actuel == "94" or
-        "Bouches-du-Rhône" in nom_actuel or code_actuel == "13" or
-        "Seine-Saint-Denis" in nom_actuel or code_actuel == "93" or
-        "Paris" in nom_actuel or code_actuel == "75"
-    ):
-        couleur = "#4B0082"
-
-    elif (
-        "Seine-Maritime" in nom_actuel or code_actuel == "76" or
-        "Eure" in nom_actuel or code_actuel == "27"
-    ):
-        couleur = "#FF1493"
-
-    elif (
-        "Hautes-Pyrénées" in nom_actuel or code_actuel == "65" or
-        "Loire-Atlantique" in nom_actuel or code_actuel == "44"
-    ):
-        couleur = "#FF69B4"
-
-    elif (
-        "Gers" in nom_actuel or code_actuel == "32" or
-        "Finistère" in nom_actuel or code_actuel == "29"
-    ):
-        couleur = "#FFB6C1"
-
-    else:
-        couleur = "#f8f9fa"
+def style_dept(feature):
+    code = feature["properties"].get("code", "")
+    value = departement_values.get(code, 100)
 
     return {
-        "fillColor": couleur,
+        "fillColor": colormap(value),
         "fillOpacity": 0.85,
-        "weight": 0,
-        "color": "none"
+        "color": "none",
+        "weight": 0
     }
 
 folium.GeoJson(
-    gdf_dept,
-    style_function=determiner_style_dept,
-    name="Départements"
+    departements_geojson,
+    name="Départements",
+    style_function=style_dept,
+    interactive=False
 ).add_to(m)
 
 # ==============================================================================
-# 4. EPCI
+# 6. EPCI (simple + stable)
 # ==============================================================================
-
-def style_base_epci(feature):
+def style_epci(feature):
     return {
-        "fillColor": "rgba(0,0,0,0)",
         "fillOpacity": 0,
-        "color": "#FFFFFF",
-        "weight": 1.0
+        "color": "#111111",
+        "weight": 0.6
     }
 
-def style_highlight_epci(feature):
+def highlight_epci(feature):
     return {
         "color": "#FF0000",
-        "weight": 2.5
+        "weight": 2
     }
 
 folium.GeoJson(
-    gdf_epci,
+    epci_geojson,
     name="EPCI",
-    style_function=style_base_epci,
-    highlight_function=style_highlight_epci,
+    style_function=style_epci,
+    highlight_function=highlight_epci,
     tooltip=folium.GeoJsonTooltip(
-        fields=[colonne_nom_epci, colonne_code_epci],
-        aliases=["Intercommunalité :", "Code SIREN :"]
-    ),
-    popup=folium.GeoJsonPopup(
-        fields=[colonne_nom_epci, colonne_code_epci],
-        aliases=["Nom EPCI :", "SIREN :"]
+        fields=["nom", "siren"],
+        aliases=["Intercommunalité :", "SIREN :"]
     )
 ).add_to(m)
 
 # ==============================================================================
-# 5. LÉGENDE HTML
+# 7. LÉGENDE
 # ==============================================================================
+colormap.add_to(m)
 
-html_legende = """
+title_html = """
 <div style="
 position: fixed;
-top: 20px;
-right: 20px;
+top: 15px;
+left: 60px;
 z-index:9999;
 background:white;
-padding:15px;
-border-radius:8px;
-box-shadow:0 0 15px rgba(0,0,0,0.2);
-font-size:13px;
-width:300px;
+padding:10px;
+border-radius:6px;
+box-shadow:0 2px 8px rgba(0,0,0,0.2);
+font-size:12px;
 ">
-<b>Exposition au Ruissellement</b><br><br>
-
-<div><span style="color:#4B0082;">■</span> > 15%</div>
-<div><span style="color:#FF1493;">■</span> 12-15%</div>
-<div><span style="color:#FF69B4;">■</span> 9-12%</div>
-<div><span style="color:#FFB6C1;">■</span> 6-9%</div>
-<div><span style="color:#f8f9fa;">■</span> 0%</div>
-
+<b>Risque de ruissellement</b><br>
+Exposition départementale (%)
 </div>
 """
 
-m.get_root().html.add_child(folium.Element(html_legende))
+m.get_root().html.add_child(folium.Element(title_html))
 
 # ==============================================================================
-# 6. AFFICHAGE STREAMLIT
+# 8. AFFICHAGE STREAMLIT
 # ==============================================================================
-
-bounds = [
-    [gdf_epci.total_bounds[1], gdf_epci.total_bounds[0]],
-    [gdf_epci.total_bounds[3], gdf_epci.total_bounds[2]]
-]
-
-m.fit_bounds(bounds)
-
 st_folium(m, width=None, height=800)
