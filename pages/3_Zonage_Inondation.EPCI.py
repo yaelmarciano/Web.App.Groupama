@@ -7,6 +7,7 @@ import streamlit as st
 from folium.plugins import Fullscreen
 from shapely.geometry import shape
 from streamlit_folium import st_folium
+from folium.plugins import Fullscreen, Search
 
 # =========================================================================
 # CONFIG STREAMLIT
