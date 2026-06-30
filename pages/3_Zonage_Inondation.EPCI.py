@@ -145,7 +145,13 @@ folium.GeoJson(
 
 colormap.caption = "Risque inondation (1 = faible, 3 = élevé)"
 colormap.add_to(m)
-
+Search(
+    layer=layer,
+    geom_type="Polygon",
+    placeholder="Rechercher un EPCI (entrez le nom)",
+    search_label="search",
+    collapsed=False
+).add_to(m)
 # =========================================================================
 # 6. TITRE CARTE
 # =========================================================================
