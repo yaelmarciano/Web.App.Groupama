@@ -3,6 +3,3 @@ streamlit-folium
 folium
 geopandas
 gdown
-shapely
-pyproj
-fiona
