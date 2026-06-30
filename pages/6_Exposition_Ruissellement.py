@@ -34,6 +34,9 @@ for c in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
 
 col_nom_epci = "nom" if "nom" in gdf_epci.columns else "NOM"
 col_code_epci = "siren" if "siren" in gdf_epci.columns else "code"
+gdf_epci[col_nom_epci] = gdf_epci[col_nom_epci].astype(str)
+gdf_epci[col_code_epci] = gdf_epci[col_code_epci].astype(str)
+gdf_epci["search"] = gdf_epci[col_nom_epci] + " " + gdf_epci[col_code_epci]
 
 # ==============================================================================
 # 3. STREAMLIT
@@ -204,16 +207,14 @@ def highlight_epci(feature):
         "weight": 3
     }
 
-folium.GeoJson(
+geojson_epci = folium.GeoJson(
     gdf_epci,
     style_function=style_epci,
     highlight_function=highlight_epci,
-
     tooltip=folium.GeoJsonTooltip(
         fields=[col_nom_epci, col_code_epci],
         sticky=True
     ),
-
     popup=folium.GeoJsonPopup(
         fields=[col_nom_epci, col_code_epci]
     )
@@ -278,4 +279,11 @@ html_titre_et_legende = """
 """
 
 m.get_root().html.add_child(folium.Element(html_titre_et_legende))
+Search(
+    layer=geojson_epci,
+    geom_type="Polygon",
+    placeholder="Rechercher un EPCI (entrez le nom)",
+    search_label="search",
+    collapsed=False,
+).add_to(m)
 st_folium(m, width=1100, height=800)
