@@ -14,6 +14,20 @@ from streamlit_folium import st_folium
 st.set_page_config(layout="wide")
 st.title("Zonage Risque Inondation par Intercommunalité")
 st.subheader("Score moyen de risque à l'échelle nationale")
+st.markdown(
+    """
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:10px;
+        line-height:1.4;
+    ">
+    Données : zonage interne Groupama du risque inondation à la maille IRIS.  
+    Les scores ont été agrégés par moyenne à la maille communale, puis à la maille intercommunale (EPCI) afin de produire un indicateur homogène de risque à l’échelle nationale.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # =========================================================================
 # 1. CSV
