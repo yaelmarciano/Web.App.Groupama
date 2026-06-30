@@ -5,7 +5,7 @@ import folium
 import geopandas as gpd
 import pandas as pd
 import streamlit as st
-from folium.plugins import Fullscreen, Search   # ✅ AJOUT ICI
+from folium.plugins import Fullscreen, Search
 from shapely.geometry import shape
 from streamlit_folium import st_folium
 
@@ -34,7 +34,6 @@ st.markdown(
 # =========================================================================
 # 1. CHARGEMENT DU CSV
 # =========================================================================
-
 @st.cache_data
 def load_csv():
     chemin_csv = "catnat.par_epci.csv"
@@ -49,7 +48,6 @@ def load_csv():
         except Exception:
             continue
 
-    header = None
     for line in lines:
         line = line.strip()
         if not line:
@@ -60,21 +58,19 @@ def load_csv():
             nb = parts[-1].strip()
             nom = ",".join(parts[1:-1]).replace('"', "").strip()
 
-            if header is None:
-                header = (code, nom, nb)
-            else:
-                data_lines.append([code, nom, int(nb) if nb.isdigit() else 0])
+            data_lines.append([code, nom, int(nb) if nb.isdigit() else 0])
 
-    return pd.DataFrame(data_lines, columns=["epci_code", "epci_nom", "Nombre_Arretes"])
+    df = pd.DataFrame(data_lines, columns=["epci_code", "epci_nom", "Nombre_Arretes"])
+    df["epci_code"] = df["epci_code"].astype(str)
+    return df
 
 
-with st.spinner("Analyse du fichier de données CatNat..."):
+with st.spinner("Chargement données CatNat..."):
     df_epci_counts = load_csv()
 
 # =========================================================================
 # 2. GEOJSON
 # =========================================================================
-
 @st.cache_data
 def load_geojson():
     with open("epci-100m.geojson", "r", encoding="utf-8") as f:
@@ -82,22 +78,26 @@ def load_geojson():
 
     rows = []
     for feat in data["features"]:
-        rows.append({
-            "siren_geojson": str(feat["properties"]["code"]).strip(),
-            "nom": feat["properties"]["nom"],
-            "geometry": shape(feat["geometry"]),
-        })
+        rows.append(
+            {
+                "siren_geojson": str(feat["properties"]["code"]).strip(),
+                "nom": feat["properties"]["nom"],
+                "geometry": shape(feat["geometry"]),
+            }
+        )
 
     return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
 
-with st.spinner("Génération des fonds géographiques..."):
+with st.spinner("Chargement géo..."):
     gdf = load_geojson()
 
-# =========================================================================
-# 3. FUSION
-# =========================================================================
+# 🔥 AJOUT IMPORTANT POUR RECHERCHE
+gdf["search"] = gdf["nom"].astype(str)
 
+# =========================================================================
+# 3. MERGE
+# =========================================================================
 gdf_final = gdf.merge(
     df_epci_counts,
     left_on="siren_geojson",
@@ -106,93 +106,58 @@ gdf_final = gdf.merge(
 )
 
 gdf_final["Nombre_Arretes"] = gdf_final["Nombre_Arretes"].fillna(0).astype(int)
-
-# ⭐⭐⭐ AJOUT IMPORTANT POUR RECHERCHE ⭐⭐⭐
-gdf_final["search"] = gdf_final["nom"].astype(str) + " " + gdf_final["siren_geojson"].astype(str)
+vrai_max = int(gdf_final["Nombre_Arretes"].max())
 
 # =========================================================================
-# 4. CARTE
+# 4. COULEURS (INCHANGÉES)
 # =========================================================================
-
-xmin, ymin, xmax, ymax = gdf_final.total_bounds
-
-m = folium.Map(tiles="CartoDB positron", zoom_control=True)
-m.fit_bounds([[ymin, xmin], [ymax, xmax]])
-
-Fullscreen(position="topleft").add_to(m)
-
-# =========================================================================
-# 5. STYLE
-# =========================================================================
+seuils_visuels = [0, 1, 30, 100, vrai_max]
+couleurs_degrade = ["#ffffff", "#e0f3f8", "#74add1", "#313695", "#02023a"]
 
 colormap = cm.LinearColormap(
-    colors=["#ffffff", "#e0f3f8", "#74add1", "#313695", "#02023a"],
+    colors=couleurs_degrade,
+    index=seuils_visuels,
     vmin=0,
-    vmax=max(gdf_final["Nombre_Arretes"])
+    vmax=vrai_max,
 )
 
 def style_function(feature):
-    v = feature["properties"]["Nombre_Arretes"]
+    val = feature["properties"]["Nombre_Arretes"]
     return {
-        "fillColor": colormap(v),
-        "fillOpacity": 0.85 if v > 0 else 0.1,
-        "color": "#555",
+        "fillColor": colormap(val),
+        "fillOpacity": 0.85,
+        "color": "#555555",
         "weight": 0.4,
     }
 
 def highlight_function(feature):
-    return {"fillOpacity": 0.7, "color": "red", "weight": 2.5}
+    return {"fillOpacity": 0.7, "color": "#ff3333", "weight": 2.5}
 
 # =========================================================================
-# 6. COUCHE EPCI (IMPORTANT : layer pour Search)
+# 5. CARTE
 # =========================================================================
+xmin, ymin, xmax, ymax = gdf_final.total_bounds
+m = folium.Map(tiles="CartoDB positron")
+m.fit_bounds([[ymin, xmin], [ymax, xmax]])
 
-layer_epci = folium.FeatureGroup(name="EPCI").add_to(m)
+Fullscreen(position="topleft").add_to(m)
+
+layer = folium.FeatureGroup(name="EPCI").add_to(m)
 
 folium.GeoJson(
     gdf_final,
-    name="EPCI",
     style_function=style_function,
     highlight_function=highlight_function,
     tooltip=folium.GeoJsonTooltip(
         fields=["nom", "siren_geojson", "Nombre_Arretes"],
-        aliases=["Nom :", "SIREN :", "Arrêtés :"]
+        aliases=["Nom :", "SIREN :", "Arretes :"],
+        sticky=True
     ),
-).add_to(layer_epci)
+).add_to(layer)
 
 colormap.add_to(m)
-
+ STREAMLIT
 # =========================================================================
-# 7. 🔎 BARRE DE RECHERCHE (ZOOM AUTOMATIQUE)
-# =========================================================================
+st_folium(m, width=1100, height=650)
 
-Search(
-    layer=layer_epci,
-    geom_type="Polygon",
-    placeholder="Rechercher un EPCI (entrez le nom)",
-    search_label="search",
-    collapsed=False
-).add_to(m)
 
-# =========================================================================
-# 8. TITRE HTML (inchangé)
-# =========================================================================
-
-titre_html = """
-<div style="position: fixed; 
-            top: 15px; left: 70px; width: 460px; 
-            z-index:9999; font-size:14px; background-color: white;
-            border:2px solid #313695; padding: 8px; border-radius: 6px;">
-<b>Nombre d'arrêtés CatNat par Intercommunalité (EPCI)</b><br>
-<span style="font-size:11px; color:#555;">
-Période 2000-2026 | Inondations & Coulées de Boue
-</span>
-</div>
-"""
-m.get_root().html.add_child(folium.Element(titre_html))
-
-# =========================================================================
-# 9. STREAMLIT
-# =========================================================================
-
-st_folium(m, width=1100, height=650, returned_objects=[])
