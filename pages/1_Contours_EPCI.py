@@ -6,6 +6,7 @@ from folium.plugins import Fullscreen
 # Configuration de la page Streamlit (largeur maximale pour la carte)
 st.set_page_config(layout="wide")
 
+st.title("Carte interactive des EPCI")
 
 st.markdown(
     """
