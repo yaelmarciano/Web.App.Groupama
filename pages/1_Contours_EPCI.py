@@ -9,7 +9,7 @@ from streamlit_folium import st_folium
 # PAGE STREAMLIT
 # ======================
 st.set_page_config(layout="wide")
-st.title("Carte interactive des EPCI (avec recherche)")
+st.title("Carte interactive des EPCI")
 
 # ======================
 # CHARGEMENT DONNÉES
@@ -74,9 +74,9 @@ Search(
     geom_type="Polygon",
     placeholder="Rechercher un EPCI (nom ou SIREN)",
     search_label="nom",
+    search_zoom=12,
     collapsed=False
 ).add_to(m)
-
 # ======================
 # AFFICHAGE STREAMLIT
 # ======================
