@@ -41,6 +41,14 @@ col_code_epci = "siren" if "siren" in gdf_epci.columns else "code"
 
 st.set_page_config(layout="wide")
 st.title("Exposition au ruissellement")
+st.markdown(
+    """
+<div style="font-size:13px; color:grey; margin-top:-10px; margin-bottom:18px;">
+Source : carte de la <b>part de surface communale exposée au risque d'inondation par ruissellement</b> produite par la <b>CCR (Caisse Centrale de Réassurance)</b>. Les couleurs affichées correspondent à la classe majoritaire observée pour chaque département à partir de cette carte, puis les contours des intercommunalités (EPCI) ont été superposés afin de permettre une lecture à cette échelle.
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 m = folium.Map(
     location=[46.6, 2.5],
@@ -215,4 +223,59 @@ folium.GeoJson(
 # 6. AFFICHAGE
 # ==============================================================================
 
+html_titre_et_legende = """
+<div style="
+    position: fixed; 
+    top: 20px; right: 20px; width: 320px; height: auto; 
+    z-index:9999; font-family: Arial, sans-serif; font-size:13px;
+    background-color: white; padding: 15px; border-radius: 8px; 
+    box-shadow: 0 0 15px rgba(0,0,0,0.2); line-height: 1.5;
+">
+    <div style="font-weight: bold; font-size: 15px; margin-bottom: 8px; color: #333;">
+        Exposition au risque de ruissellement
+    </div>
+
+    <div style="font-size: 11px; color: #666; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 8px;">
+        Part de surface communale exposée au risque d'inondation par ruissellement (classe majoritaire par département) avec superposition des contours des intercommunalités (EPCI).
+    </div>
+
+    <div style="font-weight: bold; margin-bottom: 8px; color: #444;">
+        Légende
+    </div>
+
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+        <div style="width:20px;height:15px;background:#4B0082;border:1px solid #310054;margin-right:10px;"></div>
+        <span>Supérieur à 15 %</span>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+        <div style="width:20px;height:15px;background:#FF1493;border:1px solid #C71585;margin-right:10px;"></div>
+        <span>Entre 12 % et 15 %</span>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+        <div style="width:20px;height:15px;background:#FF69B4;border:1px solid #C71585;margin-right:10px;"></div>
+        <span>Entre 9 % et 12 %</span>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+        <div style="width:20px;height:15px;background:#FFB6C1;border:1px solid #FF91A4;margin-right:10px;"></div>
+        <span>Entre 6 % et 9 %</span>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+        <div style="width:20px;height:15px;background:#FFF5EE;border:1px solid #E6D7CE;margin-right:10px;"></div>
+        <span>0 %</span>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed #ddd;">
+        <div style="width:20px;height:2px;background:#FFFFFF;border:1px solid #999;margin-right:10px;"></div>
+        <span style="font-size:11px;color:#555;">
+            Contours blancs : limites des intercommunalités (EPCI)
+        </span>
+    </div>
+</div>
+"""
+
+m.get_root().html.add_child(folium.Element(html_titre_et_legende))
 st_folium(m, width=1100, height=800)
