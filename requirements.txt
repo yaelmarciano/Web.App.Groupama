@@ -2,7 +2,7 @@ streamlit
 streamlit-folium
 folium
 geopandas
-streamlit-folium
+fiona
 branca
 shapely
 gdown
