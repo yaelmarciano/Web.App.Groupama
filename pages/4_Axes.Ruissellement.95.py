@@ -110,5 +110,18 @@ import streamlit as st
 from streamlit_folium import st_folium
 
 # Affichage propre dans Streamlit
-st.title("Carte des Axes de Ruissellement (95)")
+st.title("Carte des Axes de Ruissellement du Val d'Oise (95)")
+st.markdown(
+    """
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:12px;
+        line-height:1.4;
+    ">
+    Données : axes de ruissellement du département du <b>Val-d'Oise (95)</b>, issus du jeu de données <i>« Axes de ruissellement »</i> diffusé sur <b>data.gouv.fr</b>. Les axes représentent les principaux chemins d'écoulement des eaux de pluie, où le risque de ruissellement est le plus marqué.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st_folium(m, width=800, height=600, use_container_width=True)
