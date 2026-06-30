@@ -16,19 +16,26 @@ NOM_ZIP = "ruissellement.zip"
 DOSSIER_CIBLE = "pack_mapinfo"
 
 # ==============================================================================
-# 1. TÉLÉCHARGEMENT ET EXTRACTION SÉCURISÉS (FONCTIONS NATIVES)
+# 1. TÉLÉCHARGEMENT ET EXTRACTION (AVEC LA BONNE URL API DRIVE)
 # ==============================================================================
 
 @st.cache_resource
 def preparer_fichiers_geographiques():
-    # Lien de téléchargement direct de votre ZIP Google Drive
     FILE_ID = "1veemvji7Ma-3lTHgNcNdMRL7vBK0GjH2"
-    url_drive = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
+    
+    # C'est cette URL précise (docs.google.com avec le paramètre confirm=t) 
+    # qui permet de télécharger directement les gros fichiers ZIP sans blocage !
+    url_drive = f"https://docs.google.com/uc?export=download&id={FILE_ID}&confirm=t"
     
     try:
         # Téléchargement du ZIP si absent
         if not os.path.exists(NOM_ZIP):
             with st.spinner("Téléchargement des axes de ruissellement depuis Google Drive..."):
+                # On ajoute un User-Agent pour simuler un navigateur internet normal
+                opener = urllib.request.build_opener()
+                opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+                urllib.request.install_opener(opener)
+                
                 urllib.request.urlretrieve(url_drive, NOM_ZIP)
         
         # Extraction du ZIP si le dossier n'existe pas encore
@@ -52,7 +59,7 @@ gdf_epci = None
 
 if fichiers_prets:
     try:
-        # Recherche du fichier .TAB (gère si c'est dans un sous-dossier du ZIP)
+        # Recherche du fichier .TAB
         chemin_tab = None
         for racine, dossiers, fichiers in os.walk(DOSSIER_CIBLE):
             for f in fichiers:
@@ -66,12 +73,12 @@ if fichiers_prets:
             if gdf_ruissellement.crs is not None:
                 gdf_ruissellement = gdf_ruissellement.to_crs(epsg=4326)
         else:
-            st.warning("Fichier .TAB introuvable dans le dossier extrait.")
+            st.warning("Fichier L_AXE_RUISSEL_L_080.TAB introuvable dans le dossier extrait.")
             
     except Exception as e:
         st.warning(f"Impossible de charger les axes de ruissellement : {e}")
 
-# Chargement sécurisé de l'EPCI (vérifie s'il est bien sur votre GitHub)
+# Chargement de l'EPCI (vérifie s'il est bien sur votre GitHub)
 if os.path.exists("epci-100m.geojson"):
     try:
         gdf_epci = gpd.read_file("epci-100m.geojson")
@@ -83,10 +90,9 @@ else:
     st.info("ℹ️ Le fichier 'epci-100m.geojson' n'est pas détecté à la racine de GitHub.")
 
 # ==============================================================================
-# 3. AFFICHAGE DE LA CARTE (SANS TOUT BLOQUER)
+# 3. AFFICHAGE DE LA CARTE
 # ==============================================================================
 
-# On crée une carte de base quoi qu'il arrive
 m = folium.Map(tiles="OpenStreetMap")
 Fullscreen(position="topleft", force_separate_button=True).add_to(m)
 
@@ -115,7 +121,6 @@ if gdf_ruissellement is not None:
 
 folium.LayerControl().add_to(m)
 
-# Rendu de la carte dans Streamlit
 if carte_a_des_donnees:
     st_folium(m, width=1200, height=700)
 else:
