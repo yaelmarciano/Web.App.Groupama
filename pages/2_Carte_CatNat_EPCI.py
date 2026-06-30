@@ -119,14 +119,7 @@ def highlight_function(feature):
 # =========================================================================
 # ⭐⭐⭐ BARRE DE RECHERCHE (AJOUT ICI)
 # =========================================================================
-st.markdown("### 🔎 Rechercher une intercommunalité")
 
-liste_epci = sorted(gdf_final["nom"].dropna().unique())
-
-choix = st.selectbox(
-    "Tape le nom de l'EPCI",
-    [""] + liste_epci
-)
 
 # récupérer géométrie sélectionnée
 centre = [46.6, 2.5]
