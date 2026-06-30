@@ -1,5 +1,5 @@
 
-    import streamlit as st
+import streamlit as st
 import geopandas as gpd
 import folium
 from folium.plugins import Fullscreen
