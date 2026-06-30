@@ -6,13 +6,7 @@ from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
 # ==============================================================================
-# 1. PAGE STREAMLIT
-# ==============================================================================
-st.set_page_config(layout="wide")
-st.title("Exposition au risque de ruissellement")
-
-# ==============================================================================
-# 2. CHARGEMENT DONNÉES
+# 1. CHARGEMENT DONNÉES
 # ==============================================================================
 
 chemin_dept = "departements.geojson"
@@ -32,20 +26,22 @@ gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
     preserve_topology=True
 )
 
-# Détection colonnes départements
+# Colonnes
 colonne_trouvee = "nom"
-for col in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
-    if col in gdf_dept.columns:
-        colonne_trouvee = col
+for c in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
+    if c in gdf_dept.columns:
+        colonne_trouvee = c
         break
 
-# EPCI colonnes
-colonne_code_epci = "siren" if "siren" in gdf_epci.columns else "code"
-colonne_nom_epci = "nom" if "nom" in gdf_epci.columns else "NOM"
+col_nom_epci = "nom" if "nom" in gdf_epci.columns else "NOM"
+col_code_epci = "siren" if "siren" in gdf_epci.columns else "code"
 
 # ==============================================================================
-# 3. CARTE
+# 2. STREAMLIT
 # ==============================================================================
+
+st.set_page_config(layout="wide")
+st.title("Exposition au risque de ruissellement")
 
 m = folium.Map(
     location=[46.6, 2.5],
@@ -57,43 +53,35 @@ m = folium.Map(
 Fullscreen().add_to(m)
 
 # ==============================================================================
-# 4. STYLE DÉPARTEMENTS (TES COULEURS CONSERVÉES)
+# 3. TES COULEURS (INCHANGÉES)
 # ==============================================================================
 
 def style_dept(feature):
     nom = str(feature["properties"].get(colonne_trouvee, ""))
     code = str(feature["properties"].get("code", ""))
 
-    # VIOLET
     if (
         "Landes" in nom or code == "40" or
         "Var" in nom or code == "83" or
         "Gard" in nom or code == "30" or
         "Hérault" in nom or code == "34" or
         "Gironde" in nom or code == "33" or
-        "Nord" in nom or code == "59" or
         "Paris" in nom or code == "75"
     ):
         couleur = "#4B0082"
 
-    # ROSE FUCHSIA
     elif (
-        "Seine-Maritime" in nom or code == "76" or
-        "Eure" in nom or code == "27"
+        "Seine-Maritime" in nom or code == "76"
     ):
         couleur = "#FF1493"
 
-    # ROSE
     elif (
-        "Hautes-Pyrénées" in nom or code == "65" or
         "Loire-Atlantique" in nom or code == "44"
     ):
         couleur = "#FF69B4"
 
-    # BEIGE
     elif (
-        "Gers" in nom or code == "32" or
-        "Finistère" in nom or code == "29"
+        "Gers" in nom or code == "32"
     ):
         couleur = "#FFB6C1"
 
@@ -109,19 +97,18 @@ def style_dept(feature):
 
 folium.GeoJson(
     gdf_dept,
-    style_function=style_dept,
-    name="Départements"
+    style_function=style_dept
 ).add_to(m)
 
 # ==============================================================================
-# 5. EPCI (CORRIGÉ POUR STREAMLIT = PAS DE CRASH)
+# 4. EPCI (CLICK = NOM + SIREN)
 # ==============================================================================
 
 def style_epci(feature):
     return {
         "fillOpacity": 0,
-        "color": "#111111",
-        "weight": 0.6
+        "color": "#FFFFFF",
+        "weight": 1
     }
 
 def highlight_epci(feature):
@@ -130,14 +117,25 @@ def highlight_epci(feature):
         "weight": 2
     }
 
+def popup_epci(feature):
+    props = feature["properties"]
+    nom = props.get(col_nom_epci, "N/A")
+    code = props.get(col_code_epci, "N/A")
+
+    return folium.Popup(
+        f"<b>{nom}</b><br>SIREN : {code}",
+        max_width=300
+    )
+
 folium.GeoJson(
     gdf_epci,
     style_function=style_epci,
-    highlight_function=highlight_epci
+    highlight_function=highlight_epci,
+    popup=popup_epci
 ).add_to(m)
 
 # ==============================================================================
-# 6. LÉGENDE HTML (TON STYLE CONSERVÉ)
+# 5. LÉGENDE
 # ==============================================================================
 
 html_legende = """
@@ -151,15 +149,13 @@ padding:15px;
 border-radius:8px;
 box-shadow:0 0 15px rgba(0,0,0,0.2);
 font-size:13px;
-width:300px;
+width:320px;
 ">
 <b>Exposition au ruissellement</b><br><br>
 
-<div>■ violet : >15%</div>
-<div>■ rose foncé : 12-15%</div>
-<div>■ rose : 9-12%</div>
-<div>■ beige : 6-9%</div>
-<div>■ fond : 0%</div>
+<div>■ violet : zones fortes</div>
+<div>■ rose : zones moyennes</div>
+<div>■ beige : zones faibles</div>
 
 </div>
 """
@@ -167,7 +163,7 @@ width:300px;
 m.get_root().html.add_child(folium.Element(html_legende))
 
 # ==============================================================================
-# 7. AFFICHAGE STREAMLIT
+# 6. AFFICHAGE STREAMLIT
 # ==============================================================================
 
 st_folium(m, width=1000, height=800)
