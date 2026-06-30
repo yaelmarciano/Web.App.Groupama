@@ -9,75 +9,64 @@ import gdown
 import streamlit as st
 from streamlit_folium import st_folium
 
-# Configuration de la page Streamlit (Largeur maximale)
+# Configuration de la page Streamlit
 st.set_page_config(layout="wide")
 st.title("Application de visualisation du ruissellement")
 
 # ==============================================================================
-# 1. TÉLÉCHARGEMENT DU ZIP DEPUIS GOOGLE DRIVE
+# 1. TÉLÉCHARGEMENT ET EXTRACTION DU ZIP DEPUIS GOOGLE DRIVE
 # ==============================================================================
 
+# Dossier où le ZIP sera extrait sur le serveur de Streamlit
+DOSSIER_EXTRACTION = "mes_donnees_ruissellement"
 
 @st.cache_resource
-def telecharger_donnees():
-    # ID de votre fichier ZIP Google Drive
+def telecharger_et_extraire_donnees():
     ID_ZIP = "1veemvji7Ma-3lTHgNcNdMRL7vBK0GjH2"
     url_zip = f"https://drive.google.com/uc?export=download&id={ID_ZIP}"
-
     nom_fichier_zip = "ruissellement.zip"
 
-    # On télécharge le fichier seulement s'il n'existe pas encore localement
+    # 1. Téléchargement du ZIP s'il n'est pas déjà là
     if not os.path.exists(nom_fichier_zip):
-        with st.spinner(
-            "Téléchargement du fichier ZIP depuis Google Drive..."
-        ):
+        with st.spinner("Téléchargement du fichier ZIP depuis Google Drive..."):
             gdown.download(url_zip, nom_fichier_zip, quiet=False)
 
+    # 2. Décompression de TOUS les fichiers (.TAB, .DAT, .MAP, .ID)
+    if not os.path.exists(DOSSIER_EXTRACTION):
+        with st.spinner("Extraction des fichiers cartographiques..."):
+            with zipfile.ZipFile(nom_fichier_zip, 'r') as zip_ref:
+                zip_ref.extractall(DOSSIER_EXTRACTION)
 
-# Lancement du téléchargement automatique
-telecharger_donnees()
+# Lancement de la préparation des fichiers
+telecharger_et_extraire_donnees()
 
 # ==============================================================================
-# 2. CHARGEMENT SANS FIONA (Scan intelligent du ZIP + Moteur Pyogrio)
+# 2. CHARGEMENT DES DONNÉES DEPUIS LE DOSSIER EXTRAIT
 # ==============================================================================
-
 
 @st.cache_data
 def charger_fichiers():
-    nom_fichier_zip = "ruissellement.zip"
-    chemin_tab_interne = None
+    chemin_tab_final = None
 
-    # On ouvre le fichier ZIP en mémoire
-    with zipfile.ZipFile(nom_fichier_zip, "r") as z:
-        # Récupération de la liste de tout ce qui se trouve dans le ZIP
-        liste_fichiers = z.namelist()
-
-        # On cherche dynamiquement le fichier qui se termine par L_AXE_RUISSEL_L_080.TAB
-        # (Peu importe s'il est dans un sous-dossier ou écrit en minuscules)
-        for f in liste_fichiers:
-            if f.upper().endswith("L_AXE_RUISSEL_L_080.TAB"):
-                chemin_tab_interne = f
+    # On parcourt le dossier extrait pour trouver où est le fichier .TAB
+    # (Gère automatiquement si les fichiers sont dans un sous-dossier du ZIP)
+    for racine, dossiers, fichiers in os.walk(DOSSIER_EXTRACTION):
+        for fichier in fichiers:
+            if fichier.upper().endswith("L_AXE_RUISSEL_L_080.TAB"):
+                chemin_tab_final = os.path.join(racine, fichier)
                 break
 
-        # Si le code ne trouve rien, on affiche une erreur propre avec la liste des fichiers
-        if chemin_tab_interne is None:
-            st.error(
-                f"Le fichier L_AXE_RUISSEL_L_080.TAB est introuvable dans l'archive ZIP. "
-                f"Contenu détecté dans le ZIP : {liste_fichiers}"
-            )
-            st.stop()
+    if chemin_tab_final is None:
+        st.error("Le fichier L_AXE_RUISSEL_L_080.TAB est introuvable dans le dossier extrait.")
+        st.stop()
 
-        # On extrait les octets du fichier trouvé
-        with z.open(chemin_tab_interne) as f:
-            bytes_data = f.read()
-
-        # Lecture ultra-rapide des octets bruts avec Pyogrio
-        gdf_ruiss = gpd.read_file(bytes_data, engine="pyogrio")
+    # Pyogrio va lire le fichier sur le disque, il trouvera ainsi le .DAT et le .MAP à côté !
+    gdf_ruiss = gpd.read_file(chemin_tab_final, engine="pyogrio")
 
     # Chargement du fichier EPCI local (présent sur votre dépôt GitHub)
     gdf_epci_local = gpd.read_file("epci-100m.geojson", engine="pyogrio")
 
-    # Conversion des coordonnées des deux couches pour Folium (WGS84)
+    # Conversion des coordonnées pour Folium (WGS84)
     if gdf_ruiss.crs is not None:
         gdf_ruiss = gdf_ruiss.to_crs(epsg=4326)
     if gdf_epci_local.crs is not None:
@@ -85,8 +74,7 @@ def charger_fichiers():
 
     return gdf_ruiss, gdf_epci_local
 
-
-# Récupération des données prêtes à être cartographiées
+# Récupération des données prêtes
 gdf_ruissellement, gdf_epci = charger_fichiers()
 
 # ==============================================================================
@@ -100,42 +88,45 @@ Fullscreen(
     position="topleft",
     title="Passer en plein écran",
     title_cancel="Quitter le plein écran",
-    force_separate_button=True,
+    force_separate_button=True
 ).add_to(m)
 
-# Ajout de la couche des contours des EPCI
+# Ajout des contours des EPCI
 folium.GeoJson(
     gdf_epci,
     name="Contours des EPCI",
     style_function=lambda x: {
         "fillColor": "transparent",
-        "color": "#666666",  # Gris
+        "color": "#666666",
         "weight": 1.5,
     },
     highlight_function=lambda x: {
-        "fillColor": "#FF0000",  # Rouge transparent au survol
+        "fillColor": "#FF0000",
         "fillOpacity": 0.2,
-        "color": "#FF0000",  # Ligne rouge vif
+        "color": "#FF0000",
         "weight": 3.0,
     },
     tooltip=folium.GeoJsonTooltip(
-        fields=["nom", "code"],
-        aliases=["Nom de l'EPCI :", "Numéro :"],
-        localize=True,
-    ),
+        fields=['nom', 'code'],
+        aliases=['Nom de l\'EPCI :', 'Numéro :'],
+        localize=True
+    )
 ).add_to(m)
 
-# Ajout de la couche des axes de ruissellement
+# Ajout des axes de ruissellement
 folium.GeoJson(
-    gdf_ruissellement,
+    gdf_ruissellement, 
     name="Axes de ruissellement",
-    style_function=lambda x: {"color": "#0000FF", "weight": 2.5},  # Bleu eau
+    style_function=lambda x: {
+        "color": "#0000FF",
+        "weight": 2.5
+    }
 ).add_to(m)
 
-# Centrage automatique de la carte sur vos axes de ruissellement
+# Centrage automatique
 m.fit_bounds(gdf_ruissellement.total_bounds.tolist())
 
-# Menu de contrôle des couches (Cocher/Décocher en haut à droite)
+# Contrôle des couches
 folium.LayerControl().add_to(m)
 
 # ==============================================================================
