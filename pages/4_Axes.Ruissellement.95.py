@@ -1,6 +1,7 @@
 import folium
 import geopandas as gpd
 from folium.plugins import Fullscreen
+from folium.plugins import Fullscreen, Search
 
 # ==========================================
 # 1. CHARGEMENT ET PRÉPARATION DES DONNÉES
@@ -33,6 +34,9 @@ gdf_epci_4326 = gdf_epci.to_crs(epsg=4326)
 # Si ton fichier a des noms de colonnes un peu différents, on les renomme à la volée
 if "code" in gdf_epci_4326.columns and "siren" not in gdf_epci_4326.columns:
     gdf_epci_4326 = gdf_epci_4326.rename(columns={"code": "siren"})
+    gdf_epci_4326["nom"] = gdf_epci_4326["nom"].astype(str)
+    gdf_epci_4326["siren"] = gdf_epci_4326["siren"].astype(str)
+    gdf_epci_4326["search"] = gdf_epci_4326["nom"] + " " + gdf_epci_4326["siren"]
 
 
 # ==========================================
@@ -82,7 +86,7 @@ def highlight_epci(feature):
 # ==========================================
 
 # Couche 1 : Les contours des EPCI (Style noir, surbrillance rouge et Tooltip inclus)
-folium.GeoJson(
+geojson_epci = folium.GeoJson(
     gdf_epci_4326,
     name="Contours EPCI",
     style_function=style_epci,
@@ -98,7 +102,13 @@ folium.GeoJson(
         "weight": 1.5,
     },
 ).add_to(m)
-
+Search(
+    layer=geojson_epci,
+    geom_type="Polygon",
+    placeholder="Rechercher un EPCI (entrez le nom)",
+    search_label="search",
+    collapsed=False,
+).add_to(m)
 # Menu des couches en haut à droite
 folium.LayerControl().add_to(m)
 
