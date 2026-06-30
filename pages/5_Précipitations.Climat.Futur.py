@@ -17,6 +17,19 @@ from streamlit_folium import st_folium
 st.set_page_config(layout="wide")
 st.title("Cumul annuel de précipitations")
 st.subheader("Rapport à la référence 1976-2005 pour l'horizon lointain")
+st.markdown(
+    """
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:12px;
+        line-height:1.4;
+    ">
+    Données : carte élaborée à partir des simulations climatiques de <b>Météo-France</b> relatives au cumul annuel de précipitations à l'horizon 2071-2100 (référence 1976-2005, scénario RCP4.5). Les contours des intercommunalités (EPCI), issus de <b>data.gouv.fr</b>, ont été superposés afin de permettre une lecture des projections climatiques à l'échelle intercommunale.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ==============================================================================
 # 2. CHARGEMENT DES DEUX GEOJSON LOCAUX (Depuis ton dépôt GitHub)
