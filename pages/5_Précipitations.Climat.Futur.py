@@ -9,7 +9,7 @@ import folium
 import geopandas as gpd
 import pandas as pd
 import streamlit as st
-from folium.plugins import Fullscreen
+from folium.plugins import Fullscreen, Search
 from shapely.geometry import shape
 from streamlit_folium import st_folium
 
@@ -62,6 +62,9 @@ def load_data_climat():
     gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
         tolerance=0.005, preserve_topology=True
     )
+    gdf_epci["nom"] = gdf_epci["nom"].astype(str)
+    gdf_epci["siren"] = gdf_epci["siren"].astype(str)
+    gdf_epci["search"] = gdf_epci["nom"] + " " + gdf_epci["siren"]
 
     return departements_geojson, gdf_epci
 
@@ -244,7 +247,7 @@ tooltip_epci = folium.GeoJsonTooltip(
     fields=["nom", "siren"], aliases=["Intercommunalité :", "Code SIREN :"], sticky=True
 )
 
-folium.GeoJson(
+geojson_epci = folium.GeoJson(
     gdf_epci,
     name="Contours EPCI",
     style_function=style_epci,
@@ -269,6 +272,13 @@ title_html = """
 </div>
 """
 m.get_root().html.add_child(folium.Element(title_html))
+Search(
+    layer=geojson_epci,
+    geom_type="Polygon",
+    placeholder="Rechercher un EPCI (entrez le nom)",
+    search_label="search",
+    collapsed=False,
+).add_to(m)
 folium.LayerControl().add_to(m)
 
 # Rendu officiel via streamlit_folium (sans IPython)
