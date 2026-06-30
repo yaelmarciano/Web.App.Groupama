@@ -1,7 +1,7 @@
 import folium
 import geopandas as gpd
 import streamlit as st
-from folium.plugins import Fullscreen
+from folium.plugins import Fullscreen, Search
 from streamlit_folium import st_folium
 
 # ==============================================================================
