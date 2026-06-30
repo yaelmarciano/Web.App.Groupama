@@ -1,6 +1,6 @@
 
 
-
+from folium.plugins import Search
 import json
 import branca.colormap as cm
 import folium
@@ -158,14 +158,23 @@ tooltip = folium.GeoJsonTooltip(
     sticky=True
 )
 
-folium.GeoJson(
+layer = folium.FeatureGroup(name="EPCI").add_to(m)
+
+geo = folium.GeoJson(
     gdf_final,
     style_function=style_function,
     highlight_function=highlight_function,
     tooltip=tooltip
-).add_to(m)
+).add_to(layer)
 
 colormap.add_to(m)
+Search(
+    layer=layer,
+    geom_type="Polygon",
+    search_label="nom",
+    placeholder="🔎 Rechercher un EPCI...",
+    collapsed=False
+).add_to(m)
 
 # =========================================================================
 # TITRE
