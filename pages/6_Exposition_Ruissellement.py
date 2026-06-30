@@ -23,7 +23,7 @@ gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
 )
 
 # ==============================================================================
-# 2. COLONNES (CORRIGÉ POUR ÉVITER CRASH)
+# 2. COLONNES
 # ==============================================================================
 
 colonne_trouvee = "nom"
@@ -32,20 +32,8 @@ for c in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
         colonne_trouvee = c
         break
 
-# 👉 IMPORTANT : sécurisation
-if "nom" in gdf_epci.columns:
-    col_nom_epci = "nom"
-elif "NOM" in gdf_epci.columns:
-    col_nom_epci = "NOM"
-else:
-    col_nom_epci = gdf_epci.columns[0]
-
-if "siren" in gdf_epci.columns:
-    col_code_epci = "siren"
-elif "code" in gdf_epci.columns:
-    col_code_epci = "code"
-else:
-    col_code_epci = gdf_epci.columns[1]
+col_nom_epci = "nom" if "nom" in gdf_epci.columns else "NOM"
+col_code_epci = "siren" if "siren" in gdf_epci.columns else "code"
 
 # ==============================================================================
 # 3. STREAMLIT
@@ -64,14 +52,12 @@ m = folium.Map(
 Fullscreen().add_to(m)
 
 # ==============================================================================
-# 4. TES COULEURS (STRICTEMENT IDENTIQUES + SAFE)
+# 4. TES COULEURS (INCHANGÉES)
 # ==============================================================================
 
 def determiner_style_dept(feature):
-    props = feature.get("properties", {})  # ✅ IMPORTANT FIX
-
-    nom_actuel = str(props.get(colonne_trouvee, ""))
-    code_actuel = str(props.get("code", ""))
+    nom_actuel = str(feature['properties'].get(colonne_trouvee, ''))
+    code_actuel = str(feature['properties'].get('code', ''))
 
     if (
         "Landes" in nom_actuel or code_actuel == "40" or
@@ -194,22 +180,39 @@ def determiner_style_dept(feature):
 folium.GeoJson(gdf_dept, style_function=determiner_style_dept).add_to(m)
 
 # ==============================================================================
-# 5. EPCI (SAFE TOOLTIP + POPUP)
+# 5. EPCI (BLANC + ROUGE SURVOL)
 # ==============================================================================
+
+def style_epci(feature):
+    return {
+        "fillOpacity": 0,
+        "color": "#FFFFFF",
+        "weight": 1
+    }
+
+def highlight_epci(feature):
+    return {
+        "color": "#FF0000",
+        "weight": 3
+    }
 
 folium.GeoJson(
     gdf_epci,
+    style_function=style_epci,
+    highlight_function=highlight_epci,
+
     tooltip=folium.GeoJsonTooltip(
         fields=[col_nom_epci, col_code_epci],
         sticky=True
     ),
+
     popup=folium.GeoJsonPopup(
         fields=[col_nom_epci, col_code_epci]
     )
 ).add_to(m)
 
 # ==============================================================================
-# 6. STREAMLIT DISPLAY
+# 6. AFFICHAGE
 # ==============================================================================
 
 st_folium(m, width=1100, height=800)
