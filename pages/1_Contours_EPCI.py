@@ -2,68 +2,82 @@
 import streamlit as st
 import geopandas as gpd
 import folium
-from folium.plugins import Fullscreen
+from folium.plugins import Fullscreen, Search
+from streamlit_folium import st_folium
 
+# ======================
+# PAGE STREAMLIT
+# ======================
 st.set_page_config(layout="wide")
+st.title("Carte interactive des EPCI (avec recherche)")
 
-st.title("Carte interactive des EPCI")
-
-# 🔍 BARRE DE RECHERCHE (AJOUTÉE)
-recherche = st.text_input("🔍 Rechercher un EPCI (nom ou code SIREN)")
-
-# =========================
-# 1. CHARGEMENT
-# =========================
-path = "epci-100m.geojson"
-
+# ======================
+# CHARGEMENT DONNÉES
+# ======================
 @st.cache_data
-def load_geo_data(file_path):
-    gdf_raw = gpd.read_file(file_path)
+def load_data():
+    gdf = gpd.read_file("epci-100m.geojson")
 
-    if gdf_raw.crs is None:
-        gdf_raw.set_crs("EPSG:4326", inplace=True)
-    elif gdf_raw.crs != "EPSG:4326":
-        gdf_raw = gdf_raw.to_crs("EPSG:4326")
+    if gdf.crs is None:
+        gdf = gdf.set_crs("EPSG:4326")
+    else:
+        gdf = gdf.to_crs("EPSG:4326")
 
-    return gdf_raw
+    # sécurise les champs
+    gdf["nom"] = gdf["nom"].astype(str)
+    gdf["code"] = gdf["code"].astype(str)
 
-gdf = load_geo_data(path)
+    return gdf
 
-# =========================
-# 🔍 FILTRAGE SI RECHERCHE
-# =========================
-gdf_affiche = gdf.copy()
+gdf = load_data()
 
-if recherche:
-    gdf_affiche = gdf[
-        gdf["nom"].str.contains(recherche, case=False, na=False)
-        | gdf["code"].astype(str).str.contains(recherche, na=False)
-    ]
-
-# =========================
+# ======================
 # CARTE
-# =========================
-xmin, ymin, xmax, ymax = gdf_affiche.total_bounds
+# ======================
+m = folium.Map(tiles="cartodbpositron", zoom_control=True)
 
-m = folium.Map(tiles=None)
-m.fit_bounds([[ymin, xmin], [ymax, xmax]])
+# zoom automatique sur la France
+bounds = gdf.total_bounds
+m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
 
+# bouton plein écran
 Fullscreen().add_to(m)
 
-def style_function(feature):
-    return {"fillOpacity": 0, "color": "black", "weight": 0.8}
-
-def highlight_function(feature):
-    return {"color": "red", "weight": 3}
+# ======================
+# COUCHE EPCI
+# ======================
+layer = folium.FeatureGroup(name="EPCI").add_to(m)
 
 folium.GeoJson(
-    gdf_affiche,
-    style_function=style_function,
-    highlight_function=highlight_function,
-    tooltip=folium.GeoJsonTooltip(fields=["nom", "code"])
+    gdf,
+    name="EPCI",
+    style_function=lambda x: {
+        "fillOpacity": 0,
+        "color": "black",
+        "weight": 1
+    },
+    highlight_function=lambda x: {
+        "color": "red",
+        "weight": 3
+    },
+    tooltip=folium.GeoJsonTooltip(
+        fields=["nom", "code"],
+        aliases=["Nom :", "SIREN :"]
+    ),
+).add_to(layer)
+
+# ======================
+# BARRE DE RECHERCHE
+# ======================
+Search(
+    layer=layer,
+    geom_type="Polygon",
+    placeholder="Rechercher un EPCI (nom ou SIREN)",
+    search_label="nom",
+    collapsed=False
 ).add_to(m)
 
-# =========================
-# AFFICHAGE CORRIGÉ
-# =========================
-st.components.v1.html(m._repr_html_(), height=700)
+# ======================
+# AFFICHAGE STREAMLIT
+# ======================
+st_folium(m, width=1100, height=700)
