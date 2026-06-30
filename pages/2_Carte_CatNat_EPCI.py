@@ -143,8 +143,27 @@ if choix:
 # 5. CARTE
 # =========================================================================
 xmin, ymin, xmax, ymax = gdf_final.total_bounds
+if choix:
+    selected = gdf_final[gdf_final["nom"] == choix]
 
-m = folium.Map(tiles="CartoDB positron", zoom_control=True)
+    if len(selected) > 0:
+        geom = selected.iloc[0].geometry
+        centroid = geom.centroid
+
+        m = folium.Map(
+            tiles="CartoDB positron",
+            zoom_start=10,
+            location=[centroid.y, centroid.x],
+            zoom_control=True
+        )
+    else:
+        m = folium.Map(tiles="CartoDB positron", zoom_control=True)
+        xmin, ymin, xmax, ymax = gdf_final.total_bounds
+        m.fit_bounds([[ymin, xmin], [ymax, xmax]])
+else:
+    m = folium.Map(tiles="CartoDB positron", zoom_control=True)
+    xmin, ymin, xmax, ymax = gdf_final.total_bounds
+    m.fit_bounds([[ymin, xmin], [ymax, xmax]])
 
 m.fit_bounds([[ymin, xmin], [ymax, xmax]])
 
