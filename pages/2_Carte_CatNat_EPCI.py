@@ -121,18 +121,6 @@ def highlight_function(feature):
 # =========================================================================
 
 
-# récupérer géométrie sélectionnée
-centre = [46.6, 2.5]
-zoom = 6
-
-if choix:
-    selected = gdf_final[gdf_final["nom"] == choix]
-
-    if len(selected) > 0:
-        geom = selected.iloc[0].geometry
-        centroid = geom.centroid
-        centre = [centroid.y, centroid.x]
-        zoom = 10
 
 # =========================================================================
 # 5. CARTE
