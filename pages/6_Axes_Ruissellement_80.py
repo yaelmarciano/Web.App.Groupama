@@ -1,3 +1,5 @@
+
+
 import os
 import zipfile
 import folium
@@ -7,7 +9,7 @@ import gdown
 import streamlit as st
 from streamlit_folium import st_folium
 
-# Configuration de la page Streamlit
+# Configuration de la page Streamlit (Largeur maximale)
 st.set_page_config(layout="wide")
 st.title("Application de visualisation du ruissellement")
 
@@ -24,6 +26,7 @@ def telecharger_donnees():
 
     nom_fichier_zip = "ruissellement.zip"
 
+    # On télécharge le fichier seulement s'il n'existe pas encore localement
     if not os.path.exists(nom_fichier_zip):
         with st.spinner(
             "Téléchargement du fichier ZIP depuis Google Drive..."
@@ -31,33 +34,50 @@ def telecharger_donnees():
             gdown.download(url_zip, nom_fichier_zip, quiet=False)
 
 
-# Lancement du téléchargement
+# Lancement du téléchargement automatique
 telecharger_donnees()
 
 # ==============================================================================
-# 2. CHARGEMENT SANS FIONA (Utilisation native de Pyogrio + Zipfile)
+# 2. CHARGEMENT SANS FIONA (Scan intelligent du ZIP + Moteur Pyogrio)
 # ==============================================================================
 
 
 @st.cache_data
 def charger_fichiers():
     nom_fichier_zip = "ruissellement.zip"
+    chemin_tab_interne = None
 
-    # On utilise le gestionnaire de fichier zip standard de Python
+    # On ouvre le fichier ZIP en mémoire
     with zipfile.ZipFile(nom_fichier_zip, "r") as z:
-        # On lit le contenu brut du fichier .TAB contenu dans l'archive
-        # /!\ Attention à la casse exacte : "L_AXE_RUISSEL_L_080.TAB"
-        with z.open("L_AXE_RUISSEL_L_080.TAB") as f:
+        # Récupération de la liste de tout ce qui se trouve dans le ZIP
+        liste_fichiers = z.namelist()
+
+        # On cherche dynamiquement le fichier qui se termine par L_AXE_RUISSEL_L_080.TAB
+        # (Peu importe s'il est dans un sous-dossier ou écrit en minuscules)
+        for f in liste_fichiers:
+            if f.upper().endswith("L_AXE_RUISSEL_L_080.TAB"):
+                chemin_tab_interne = f
+                break
+
+        # Si le code ne trouve rien, on affiche une erreur propre avec la liste des fichiers
+        if chemin_tab_interne is None:
+            st.error(
+                f"Le fichier L_AXE_RUISSEL_L_080.TAB est introuvable dans l'archive ZIP. "
+                f"Contenu détecté dans le ZIP : {liste_fichiers}"
+            )
+            st.stop()
+
+        # On extrait les octets du fichier trouvé
+        with z.open(chemin_tab_interne) as f:
             bytes_data = f.read()
 
-        # Pyogrio est capable de lire le fichier directement depuis sa version en octets (bytes)
-        # en utilisant le moteur par défaut hyper rapide
+        # Lecture ultra-rapide des octets bruts avec Pyogrio
         gdf_ruiss = gpd.read_file(bytes_data, engine="pyogrio")
 
-    # Chargement du fichier EPCI local (qui doit être dans votre GitHub)
+    # Chargement du fichier EPCI local (présent sur votre dépôt GitHub)
     gdf_epci_local = gpd.read_file("epci-100m.geojson", engine="pyogrio")
 
-    # Conversion des coordonnées pour Folium (WGS84)
+    # Conversion des coordonnées des deux couches pour Folium (WGS84)
     if gdf_ruiss.crs is not None:
         gdf_ruiss = gdf_ruiss.to_crs(epsg=4326)
     if gdf_epci_local.crs is not None:
@@ -66,7 +86,7 @@ def charger_fichiers():
     return gdf_ruiss, gdf_epci_local
 
 
-# Récupération des géométries
+# Récupération des données prêtes à être cartographiées
 gdf_ruissellement, gdf_epci = charger_fichiers()
 
 # ==============================================================================
@@ -75,7 +95,7 @@ gdf_ruissellement, gdf_epci = charger_fichiers()
 
 m = folium.Map(tiles="OpenStreetMap")
 
-# Mode Plein Écran
+# Option Plein Écran
 Fullscreen(
     position="topleft",
     title="Passer en plein écran",
@@ -83,19 +103,19 @@ Fullscreen(
     force_separate_button=True,
 ).add_to(m)
 
-# Ajout de la couche EPCI
+# Ajout de la couche des contours des EPCI
 folium.GeoJson(
     gdf_epci,
     name="Contours des EPCI",
     style_function=lambda x: {
         "fillColor": "transparent",
-        "color": "#666666",
+        "color": "#666666",  # Gris
         "weight": 1.5,
     },
     highlight_function=lambda x: {
-        "fillColor": "#FF0000",
+        "fillColor": "#FF0000",  # Rouge transparent au survol
         "fillOpacity": 0.2,
-        "color": "#FF0000",
+        "color": "#FF0000",  # Ligne rouge vif
         "weight": 3.0,
     },
     tooltip=folium.GeoJsonTooltip(
@@ -109,17 +129,17 @@ folium.GeoJson(
 folium.GeoJson(
     gdf_ruissellement,
     name="Axes de ruissellement",
-    style_function=lambda x: {"color": "#0000FF", "weight": 2.5},
+    style_function=lambda x: {"color": "#0000FF", "weight": 2.5},  # Bleu eau
 ).add_to(m)
 
-# Zoom automatique sur les données de ruissellement
+# Centrage automatique de la carte sur vos axes de ruissellement
 m.fit_bounds(gdf_ruissellement.total_bounds.tolist())
 
-# Menu de gestion des couches
+# Menu de contrôle des couches (Cocher/Décocher en haut à droite)
 folium.LayerControl().add_to(m)
 
 # ==============================================================================
-# 4. AFFICHAGE DANS L'APPLICATION STREAMLIT
+# 4. AFFICHAGE INTERACTIF DANS L'APPLICATION STREAMLIT
 # ==============================================================================
 
 st_folium(m, width=1200, height=700)
