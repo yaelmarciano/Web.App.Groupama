@@ -4,6 +4,7 @@ import folium
 import geopandas as gpd
 import pandas as pd
 import streamlit as st
+from folium.plugins import Fullscreen, Search
 from folium.plugins import Fullscreen
 from shapely.geometry import shape
 from streamlit_folium import st_folium
@@ -88,6 +89,9 @@ gdf = load_geojson()
 # 3. FUSION
 # =========================================================================
 gdf = gdf.merge(df_score, on="epci_code", how="left")
+gdf["nom"] = gdf["nom"].astype(str)
+gdf["epci_code"] = gdf["epci_code"].astype(str)
+gdf["search"] = gdf["nom"] + " " + gdf["epci_code"]
 
 # =========================================================================
 # 4. CARTE
@@ -135,7 +139,7 @@ tooltip = folium.GeoJsonTooltip(
     sticky=True,
 )
 
-folium.GeoJson(
+geojson_layer = folium.GeoJson(
     gdf,
     style_function=style_function,
     highlight_function=highlight_function,
@@ -146,7 +150,13 @@ folium.GeoJson(
 colormap.caption = "Risque inondation (1 = faible, 3 = élevé)"
 colormap.add_to(m)
 
-
+Search(
+    layer=geojson_layer,
+    geom_type="Polygon",
+    placeholder="Rechercher un EPCI (entrez le nom)",
+    search_label="search",
+    collapsed=False,
+).add_to(m)
 # =========================================================================
 # 6. TITRE CARTE
 # =========================================================================
