@@ -6,6 +6,7 @@ import gdown
 import streamlit as st
 from streamlit_folium import st_folium
 
+# Configuration de la page Streamlit
 st.set_page_config(layout="wide")
 st.title("Application de visualisation du ruissellement")
 
@@ -22,7 +23,7 @@ def telecharger_donnees():
 
     nom_fichier_zip = "ruissellement.zip"
 
-    # Téléchargement uniquement s'il n'est pas déjà présent
+    # Téléchargement uniquement s'il n'est pas déjà présent sur le serveur
     if not os.path.exists(nom_fichier_zip):
         with st.spinner(
             "Téléchargement du fichier ZIP depuis Google Drive..."
@@ -30,21 +31,23 @@ def telecharger_donnees():
             gdown.download(url_zip, nom_fichier_zip, quiet=False)
 
 
+# On lance le téléchargement automatique au chargement de la page
 telecharger_donnees()
 
 # ==============================================================================
-# 2. CHARGEMENT ET SÉLECTION DES DONNÉES (Avec Cache)
+# 2. CHARGEMENT ET SÉLECTION DES DONNÉES (Avec Moteur Fiona)
 # ==============================================================================
 
 
 @st.cache_data
 def charger_fichiers():
-    # GeoPandas sait lire directement à l'intérieur d'un ZIP !
-    # On lui indique le chemin virtuel vers le fichier .TAB contenu dans le zip
+    # Chemin vers le fichier .TAB à l'intérieur du ZIP
     chemin_zip = "zip://ruissellement.zip!L_AXE_RUISSEL_L_080.TAB"
-    gdf_ruiss = gpd.read_file(chemin_zip)
 
-    # Chargement du fichier EPCI local (qui doit être sur votre GitHub)
+    # /!\ C'est ici qu'on force l'utilisation de 'fiona' pour éviter l'erreur pyogrio
+    gdf_ruiss = gpd.read_file(chemin_zip, engine="fiona")
+
+    # Chargement du fichier EPCI local (qui doit être dans votre GitHub)
     gdf_epci_local = gpd.read_file("epci-100m.geojson")
 
     # Conversion des coordonnées pour Folium (WGS84)
@@ -56,10 +59,11 @@ def charger_fichiers():
     return gdf_ruiss, gdf_epci_local
 
 
+# On récupère les données prêtes
 gdf_ruissellement, gdf_epci = charger_fichiers()
 
 # ==============================================================================
-# 3. CONSTRUCTION DE LA CARTE
+# 3. CONSTRUCTION DE LA CARTE FOLIUM
 # ==============================================================================
 
 m = folium.Map(tiles="OpenStreetMap")
@@ -104,7 +108,7 @@ folium.GeoJson(
 # Zoom automatique sur les données de ruissellement
 m.fit_bounds(gdf_ruissellement.total_bounds.tolist())
 
-# Menu de gestion des couches
+# Menu de gestion des couches (en haut à droite)
 folium.LayerControl().add_to(m)
 
 # ==============================================================================
