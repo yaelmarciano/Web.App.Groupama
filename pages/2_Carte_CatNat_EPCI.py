@@ -1,165 +1,192 @@
+
 import json
 import branca.colormap as cm
 import folium
 import geopandas as gpd
 import pandas as pd
 import streamlit as st
-from folium.plugins import Fullscreen, Search
+from folium.plugins import Fullscreen
 from shapely.geometry import shape
 from streamlit_folium import st_folium
 
-# =========================================================================
-# STREAMLIT
-# =========================================================================
+# Configuration de la page Streamlit
 st.set_page_config(layout="wide")
-
 st.title("Carte interactive des arrêtés CatNat par Intercommunalité")
 st.subheader("Période 2000-2026 | Péril : Inondations et Coulées de Boue")
-
 st.markdown(
     """
-    <div style="font-size:12px;color:#666;margin-bottom:10px;line-height:1.4;">
-    Données : arrêtés CatNat CCR agrégés par EPCI sur la période 2000–2026.
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:10px;
+        line-height:1.4;
+    ">
+    Données : arrêtés CatNat issus de la base officielle CCR (Caisse Centrale de Réassurance),  
+    compilés à partir de la liste des arrêtés de reconnaissance de l’état de catastrophe naturelle.  
+    Traitement réalisé par agrégation des arrêtés pour le péril « Inondations et / ou Coulées de Boue »  
+    sur la période 2000–2026, regroupés par EPCI.
     </div>
     """,
     unsafe_allow_html=True
 )
 
+
 # =========================================================================
-# CSV
+# 1. CHARGEMENT DU CSV (Depuis la racine du dépôt GitHub)
 # =========================================================================
+
+
 @st.cache_data
 def load_csv():
-    with open("catnat.par_epci.csv", "r", encoding="utf-8") as f:
-        lines = f.readlines()
+    chemin_csv = "catnat.par_epci.csv"
+    data_lines = []
+    encodages = ["utf-8", "cp1252", "latin1"]
 
-    data = []
+    for enc in encodages:
+        try:
+            with open(chemin_csv, "r", encoding=enc) as f:
+                lines = f.readlines()
+            break
+        except Exception:
+            continue
+
+    header = None
     for line in lines:
-        parts = line.strip().split(",")
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(",")
         if len(parts) >= 3:
             code = parts[0].replace('"', "").strip()
             nb = parts[-1].strip()
             nom = ",".join(parts[1:-1]).replace('"', "").strip()
-            data.append([code, nom, int(nb) if nb.isdigit() else 0])
 
-    return pd.DataFrame(data, columns=["epci_code", "epci_nom", "Nombre_Arretes"])
+            if header is None:
+                header = (code, nom, nb)
+            else:
+                data_lines.append([code, nom, int(nb) if nb.isdigit() else 0])
+
+    df = pd.DataFrame(
+        data_lines, columns=["epci_code", "epci_nom", "Nombre_Arretes"]
+    )
+    df["epci_code"] = df["epci_code"].astype(str)
+    return df
 
 
-df_epci_counts = load_csv()
+with st.spinner("Analyse du fichier de données CatNat..."):
+    df_epci_counts = load_csv()
 
 # =========================================================================
-# GEOJSON + 🔥 IMPORTANT SEARCH FIELD
+# 2. LECTURE DES CONTOURS GÉOMÉTRIQUES (Depuis la racine du dépôt GitHub)
 # =========================================================================
+
+
 @st.cache_data
 def load_geojson():
-    with open("epci-100m.geojson", "r", encoding="utf-8") as f:
+    chemin_geojson = "epci-100m.geojson"
+    with open(chemin_geojson, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    features = data["features"]
     rows = []
-    for feat in data["features"]:
-        rows.append({
-            "siren_geojson": str(feat["properties"]["code"]).strip(),
-            "nom": feat["properties"]["nom"],
-            "geometry": shape(feat["geometry"])
-        })
-
-    gdf = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
-
-    # ⭐ IMPORTANT POUR SEARCH (comme ton code qui marchait)
-    gdf["search"] = gdf["nom"].astype(str) + " " + gdf["siren_geojson"].astype(str)
-
-    return gdf
+    for feat in features:
+        code_zone = str(feat["properties"]["code"]).strip()
+        rows.append(
+            {
+                "siren_geojson": code_zone,
+                "nom": feat["properties"]["nom"],
+                "geometry": shape(feat["geometry"]),
+            }
+        )
+    return gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326")
 
 
-gdf = load_geojson()
+with st.spinner("Génération des fonds géographiques..."):
+    gdf = load_geojson()
 
 # =========================================================================
-# MERGE
+# 3. FUSION EXACTE DES DONNÉES
 # =========================================================================
 gdf_final = gdf.merge(
-    df_epci_counts,
-    left_on="siren_geojson",
-    right_on="epci_code",
-    how="left"
+    df_epci_counts, left_on="siren_geojson", right_on="epci_code", how="left"
 )
-
 gdf_final["Nombre_Arretes"] = gdf_final["Nombre_Arretes"].fillna(0).astype(int)
+vrai_max = int(gdf_final["Nombre_Arretes"].max()) if len(gdf_final) > 0 else 100
 
 # =========================================================================
-# COULEURS (INCHANGÉES)
+# 4. CONFIGURATION DE LA PALETTE EN DÉGRADÉ CONTINU
 # =========================================================================
-vmax = int(gdf_final["Nombre_Arretes"].max()) if len(gdf_final) > 0 else 100
+seuils_visuels = [0, 1, 30, 100, vrai_max]
+couleurs_degrade = ["#ffffff", "#e0f3f8", "#74add1", "#313695", "#02023a"]
 
 colormap = cm.LinearColormap(
-    colors=["#ffffff", "#e0f3f8", "#74add1", "#313695", "#02023a"],
+    colors=couleurs_degrade,
+    index=seuils_visuels,
     vmin=0,
-    vmax=vmax,
-    caption="CatNat"
+    vmax=vrai_max,
+    caption="Intensité progressive du nombre d'arrêtés CatNat par EPCI",
 )
 
+
 def style_function(feature):
-    v = feature["properties"]["Nombre_Arretes"]
+    valeur = feature["properties"]["Nombre_Arretes"]
+    couleur = colormap(valeur)
     return {
-        "fillColor": colormap(v),
-        "fillOpacity": 0.85 if v > 0 else 0.1,
-        "color": "#555",
+        "fillColor": couleur,
+        "fillOpacity": 0.85 if valeur > 0 else 0.1,
+        "color": "#555555",
         "weight": 0.4,
     }
 
+
 def highlight_function(feature):
-    return {"color": "red", "weight": 3, "fillOpacity": 0.7}
+    return {"fillOpacity": 0.7, "color": "#ff3333", "weight": 2.5}
+
 
 # =========================================================================
-# MAP
+# 5. CRÉATION DE LA CARTE INTERACTIVE FOLIUM
 # =========================================================================
 xmin, ymin, xmax, ymax = gdf_final.total_bounds
-
-m = folium.Map(tiles="CartoDB positron")
+m = folium.Map(tiles="CartoDB positron", zoom_control=True)
 m.fit_bounds([[ymin, xmin], [ymax, xmax]])
 
-Fullscreen().add_to(m)
+# Bouton Plin écran placé à gauche pour ne pas entrer en conflit avec la légende
+Fullscreen(
+    position="topleft",
+    title="Plein écran",
+    title_cancel="Quitter",
+    force_separate_button=True,
+).add_to(m)
 
-# =========================================================================
-# ⭐ FEATURE GROUP (OBLIGATOIRE POUR SEARCH QUI MARCHE)
-# =========================================================================
-layer = folium.FeatureGroup(name="EPCI").add_to(m)
+tooltip = folium.GeoJsonTooltip(
+    fields=["nom", "siren_geojson", "Nombre_Arretes"],
+    aliases=["Nom de l'EPCI :", "Code SIREN :", "Nombre d'arrêtés CatNat :"],
+    sticky=True,
+)
 
-geo = folium.GeoJson(
+folium.GeoJson(
     gdf_final,
+    name="Données EPCI",
     style_function=style_function,
     highlight_function=highlight_function,
-    tooltip=folium.GeoJsonTooltip(
-        fields=["nom", "siren_geojson", "Nombre_Arretes"],
-        aliases=["Nom :", "Code :", "CatNat :"],
-        sticky=True
-    )
-).add_to(layer)
-
-# =========================================================================
-# 🔎 SEARCH QUI MARCHE (COMME TON CODE EPCI)
-# =========================================================================
-Search(
-    layer=layer,
-    search_label="search",
-    placeholder="Rechercher une intercommunalité",
-    collapsed=False
+    tooltip=tooltip,
 ).add_to(m)
 
 colormap.add_to(m)
 
-# =========================================================================
-# TITRE
-# =========================================================================
-titre_html = """
-<div style="position: fixed; top: 15px; left: 70px; z-index:9999;
-background:white;padding:10px;border-radius:6px;font-family:Arial;">
-<b>CatNat 2000-2026</b><br>
-<span style="font-size:11px;">CCR / EPCI</span>
-</div>
-"""
+# Encart de titre HTML personnalisé directement fixé sur la carte
+titre_html = f"""
+             <div style="position: fixed; 
+                         top: 15px; left: 70px; width: 460px; height: 55px; 
+                         z-index:9999; font-size:14px; background-color: white;
+                         border:2px solid #313695; padding: 8px; border-radius: 6px; font-family: sans-serif;">
+             <b>Nombre d'arrêtés CatNat par Intercommunalité (EPCI) pour la période 2000-2026</b><br>
+             <span style="font-size:11px; color:#555;">Péril : Inondations et Coulées de Boue</span>
+             </div>
+             """
 m.get_root().html.add_child(folium.Element(titre_html))
 
 # =========================================================================
-# OUTPUT
+# 6. RENDU DE LA CARTE INTERACTIVE DANS STREAMLIT
 # =========================================================================
-st_folium(m, width=1100, height=650)
+st_folium(m, width=1100, height=650, returned_objects=[])
