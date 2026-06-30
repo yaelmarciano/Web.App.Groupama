@@ -12,6 +12,22 @@ st.set_page_config(layout="wide")
 st.title("Carte interactive des EPCI")
 
 # ======================
+# 🔎 SOURCE DES DONNÉES (Markdown propre)
+# ======================
+st.markdown(
+    """
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:10px;
+    ">
+    Données : contours des intercommunalités (EPCI) — issues du jeu de données administratif de l’IGN / data.gouv.fr (Contours administratifs de la France).
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# ======================
 # CHARGEMENT DONNÉES
 # ======================
 @st.cache_data
@@ -23,9 +39,11 @@ def load_data():
     else:
         gdf = gdf.to_crs("EPSG:4326")
 
-    # sécurise les champs
     gdf["nom"] = gdf["nom"].astype(str)
     gdf["code"] = gdf["code"].astype(str)
+
+    # champ de recherche combiné
+    gdf["search"] = gdf["nom"] + " " + gdf["code"]
 
     return gdf
 
@@ -36,11 +54,9 @@ gdf = load_data()
 # ======================
 m = folium.Map(tiles="cartodbpositron", zoom_control=True)
 
-# zoom automatique sur la France
 bounds = gdf.total_bounds
 m.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
 
-# bouton plein écran
 Fullscreen().add_to(m)
 
 # ======================
@@ -67,17 +83,17 @@ folium.GeoJson(
 ).add_to(layer)
 
 # ======================
-# BARRE DE RECHERCHE
+# BARRE DE RECHERCHE (nom + SIREN)
 # ======================
 Search(
     layer=layer,
     geom_type="Polygon",
     placeholder="Rechercher un EPCI (nom ou SIREN)",
-    search_label="nom",
-    search_zoom=12,
+    search_label="search",
     collapsed=False
 ).add_to(m)
+
 # ======================
-# AFFICHAGE STREAMLIT
+# AFFICHAGE
 # ======================
 st_folium(m, width=1100, height=700)
