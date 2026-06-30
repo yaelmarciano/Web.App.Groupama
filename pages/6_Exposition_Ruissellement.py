@@ -1,21 +1,54 @@
-import json
 import folium
+import geopandas as gpd
 import streamlit as st
 from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
 # ==============================================================================
-# 1. CHARGEMENT DONNÉES (SANS GEOPANDAS POUR ÉVITER SHAPELY/PROJ/FIONA)
+# 1. CHARGEMENT DONNÉES
 # ==============================================================================
 
-with open("departements.geojson", "r", encoding="utf-8") as f:
-    gdf_dept = json.load(f)
+gdf_dept = gpd.read_file("departements.geojson")
+gdf_epci = gpd.read_file("epci-100m.geojson")
 
-with open("epci-100m.geojson", "r", encoding="utf-8") as f:
-    gdf_epci = json.load(f)
+if gdf_dept.crs:
+    gdf_dept = gdf_dept.to_crs(4326)
+
+if gdf_epci.crs:
+    gdf_epci = gdf_epci.to_crs(4326)
+
+gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
+    tolerance=0.008,
+    preserve_topology=True
+)
 
 # ==============================================================================
-# 2. STREAMLIT
+# 2. COLONNES (CORRIGÉ POUR ÉVITER CRASH)
+# ==============================================================================
+
+colonne_trouvee = "nom"
+for c in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
+    if c in gdf_dept.columns:
+        colonne_trouvee = c
+        break
+
+# 👉 IMPORTANT : sécurisation
+if "nom" in gdf_epci.columns:
+    col_nom_epci = "nom"
+elif "NOM" in gdf_epci.columns:
+    col_nom_epci = "NOM"
+else:
+    col_nom_epci = gdf_epci.columns[0]
+
+if "siren" in gdf_epci.columns:
+    col_code_epci = "siren"
+elif "code" in gdf_epci.columns:
+    col_code_epci = "code"
+else:
+    col_code_epci = gdf_epci.columns[1]
+
+# ==============================================================================
+# 3. STREAMLIT
 # ==============================================================================
 
 st.set_page_config(layout="wide")
@@ -31,13 +64,13 @@ m = folium.Map(
 Fullscreen().add_to(m)
 
 # ==============================================================================
-# 3. TA FONCTION COULEURS (STRICTEMENT IDENTIQUE)
+# 4. TES COULEURS (STRICTEMENT IDENTIQUES + SAFE)
 # ==============================================================================
 
 def determiner_style_dept(feature):
-    props = feature["properties"]
+    props = feature.get("properties", {})  # ✅ IMPORTANT FIX
 
-    nom_actuel = str(props.get("nom", ""))
+    nom_actuel = str(props.get(colonne_trouvee, ""))
     code_actuel = str(props.get("code", ""))
 
     if (
@@ -158,36 +191,25 @@ def determiner_style_dept(feature):
         "color": "none"
     }
 
-# ==============================================================================
-# 4. COUCHES
-# ==============================================================================
+folium.GeoJson(gdf_dept, style_function=determiner_style_dept).add_to(m)
 
-folium.GeoJson(
-    gdf_dept,
-    name="Départements",
-    style_function=determiner_style_dept
-).add_to(m)
+# ==============================================================================
+# 5. EPCI (SAFE TOOLTIP + POPUP)
+# ==============================================================================
 
 folium.GeoJson(
     gdf_epci,
-    name="EPCI",
-    style_function=lambda x: {"fillOpacity": 0, "color": "#FFFFFF", "weight": 1},
-    highlight_function=lambda x: {"color": "#FF0000", "weight": 2.5},
-
     tooltip=folium.GeoJsonTooltip(
-        fields=["nom", "siren"],
-        aliases=["Intercommunalité :", "SIREN :"],
+        fields=[col_nom_epci, col_code_epci],
         sticky=True
     ),
-
     popup=folium.GeoJsonPopup(
-        fields=["nom", "siren"],
-        aliases=["Nom EPCI :", "Numéro SIREN :"]
+        fields=[col_nom_epci, col_code_epci]
     )
 ).add_to(m)
 
 # ==============================================================================
-# 5. RENDU
+# 6. STREAMLIT DISPLAY
 # ==============================================================================
 
 st_folium(m, width=1100, height=800)
