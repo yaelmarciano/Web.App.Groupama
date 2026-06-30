@@ -6,24 +6,19 @@ from folium.plugins import Fullscreen
 # Configuration de la page Streamlit (largeur maximale pour la carte)
 st.set_page_config(layout="wide")
 
-st.title("Carte interactive des EPCI")
+
 st.markdown(
     """
     <div style="
-        color: #777;
-        font-size: 13px;
-        margin-top: -10px;
-        margin-bottom: 15px;
-        line-height: 1.4;
+        font-size:12px;
+        color:#666;
+        margin-bottom:10px;
     ">
-    Source : <b>Contours administratifs de la France</b> — données issues de <i>data.gouv.fr</i><br>
-    Jeu de données contenant les principaux contours administratifs (communes, départements, régions, DROM/COM) en format GeoJSON.<br>
-    Version simplifiée utilisée pour la visualisation cartographique.
+    Données : contours des intercommunalités (EPCI) — issues du jeu de données administratif de l’IGN / data.gouv.fr (Contours administratifs de la France).
     </div>
     """,
     unsafe_allow_html=True
 )
-
 # =========================
 # 1. CHEMIN DU FICHIER (Adapté pour GitHub / Local)
 # =========================
