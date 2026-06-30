@@ -1,4 +1,5 @@
 import os
+import zipfile
 import folium
 from folium.plugins import Fullscreen
 import geopandas as gpd
@@ -23,7 +24,6 @@ def telecharger_donnees():
 
     nom_fichier_zip = "ruissellement.zip"
 
-    # Téléchargement uniquement s'il n'est pas déjà présent sur le serveur
     if not os.path.exists(nom_fichier_zip):
         with st.spinner(
             "Téléchargement du fichier ZIP depuis Google Drive..."
@@ -31,24 +31,31 @@ def telecharger_donnees():
             gdown.download(url_zip, nom_fichier_zip, quiet=False)
 
 
-# On lance le téléchargement automatique au chargement de la page
+# Lancement du téléchargement
 telecharger_donnees()
 
 # ==============================================================================
-# 2. CHARGEMENT ET SÉLECTION DES DONNÉES (Avec Moteur Fiona)
+# 2. CHARGEMENT SANS FIONA (Utilisation native de Pyogrio + Zipfile)
 # ==============================================================================
 
 
 @st.cache_data
 def charger_fichiers():
-    # Chemin vers le fichier .TAB à l'intérieur du ZIP
-    chemin_zip = "zip://ruissellement.zip!L_AXE_RUISSEL_L_080.TAB"
+    nom_fichier_zip = "ruissellement.zip"
 
-    # /!\ C'est ici qu'on force l'utilisation de 'fiona' pour éviter l'erreur pyogrio
-    gdf_ruiss = gpd.read_file(chemin_zip, engine="fiona")
+    # On utilise le gestionnaire de fichier zip standard de Python
+    with zipfile.ZipFile(nom_fichier_zip, "r") as z:
+        # On lit le contenu brut du fichier .TAB contenu dans l'archive
+        # /!\ Attention à la casse exacte : "L_AXE_RUISSEL_L_080.TAB"
+        with z.open("L_AXE_RUISSEL_L_080.TAB") as f:
+            bytes_data = f.read()
+
+        # Pyogrio est capable de lire le fichier directement depuis sa version en octets (bytes)
+        # en utilisant le moteur par défaut hyper rapide
+        gdf_ruiss = gpd.read_file(bytes_data, engine="pyogrio")
 
     # Chargement du fichier EPCI local (qui doit être dans votre GitHub)
-    gdf_epci_local = gpd.read_file("epci-100m.geojson")
+    gdf_epci_local = gpd.read_file("epci-100m.geojson", engine="pyogrio")
 
     # Conversion des coordonnées pour Folium (WGS84)
     if gdf_ruiss.crs is not None:
@@ -59,7 +66,7 @@ def charger_fichiers():
     return gdf_ruiss, gdf_epci_local
 
 
-# On récupère les données prêtes
+# Récupération des géométries
 gdf_ruissellement, gdf_epci = charger_fichiers()
 
 # ==============================================================================
@@ -108,7 +115,7 @@ folium.GeoJson(
 # Zoom automatique sur les données de ruissellement
 m.fit_bounds(gdf_ruissellement.total_bounds.tolist())
 
-# Menu de gestion des couches (en haut à droite)
+# Menu de gestion des couches
 folium.LayerControl().add_to(m)
 
 # ==============================================================================
