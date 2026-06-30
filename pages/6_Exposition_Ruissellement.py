@@ -1,168 +1,272 @@
 import os
-import json
-import branca.colormap as cm
 import folium
-import geopandas as gpd
-import pandas as pd
-import streamlit as st
 from folium.plugins import Fullscreen
-from streamlit_folium import st_folium
+import geopandas as gpd
+import streamlit as st  # <-- AJOUTÉ POUR STREAMLIT
+from streamlit_folium import st_folium  # <-- AJOUTÉ POUR STREAMLIT
 
-# Configuration de la page Streamlit (Doit être la toute première commande)
-st.set_page_config(layout="wide", page_title="Climat - Précipitations")
-
-st.title("Cumul annuel de précipitations")
-st.subheader("Rapport à la référence 1976-2005 pour l'horizon lointain")
-
-# ==============================================================================
-# 2. CHARGEMENT ET RÉSOLUTION DES CHEMINS DE FICHIERS (Méthode ultra-sécurisée)
-# ==============================================================================
-repertoire_actuel = os.path.dirname(__file__) if "__file__" in locals() else os.getcwd()
-
-chemin_dept = os.path.join(repertoire_actuel, "departements.geojson")
-chemin_epci = os.path.join(repertoire_actuel, "epci-100m.geojson")
-
-@st.cache_data
-def load_data_climat(path_dept, path_epci):
-    # Vérification de sécurité pour le serveur GitHub
-    if not os.path.exists(path_dept) or not os.path.exists(path_epci):
-        st.error(f"Fichiers introuvables. Vérifiez qu'ils sont bien à la racine de votre GitHub.\nRecherché dans : {repertoire_actuel}")
-        st.stop()
-
-    # 1. Chargement direct des Départements via GeoPandas
-    gdf_d = gpd.read_file(path_dept)
-    if gdf_d.crs is not None:
-        gdf_d = gdf_d.to_crs(epsg=4326)
-
-    # 2. Chargement direct des EPCI via GeoPandas
-    gdf_e = gpd.read_file(path_epci)
-    if gdf_e.crs is not None:
-        gdf_e = gdf_e.to_crs(epsg=4326)
-
-    # Détection automatique et nettoyage des colonnes pour les EPCI
-    colonne_code = "code" if "code" in gdf_e.columns else ("siren" if "siren" in gdf_e.columns else "CODE")
-    colonne_nom = "nom" if "nom" in gdf_e.columns else ("NOM" if "NOM" in gdf_e.columns else "NOM_EPCI")
-    gdf_e = gdf_e.rename(columns={colonne_code: "siren", colonne_nom: "nom"})
-
-    # Détection automatique pour les Départements
-    colonne_dept = "code"
-    for pour_chercher in ["code", "CODE", "code_insee", "dep"]:
-        if pour_chercher in gdf_d.columns:
-            colonne_dept = pour_chercher
-            break
-    gdf_d = gdf_d.rename(columns={colonne_dept: "code"})
-
-    # CRUCIAL : Simplification géométrique pour éviter l'écran blanc sur Streamlit Cloud
-    gdf_e["geometry"] = gdf_e["geometry"].simplify(tolerance=0.005, preserve_topology=True)
-
-    return gdf_d, gdf_e
-
-
-with st.spinner("Chargement des fonds cartographiques..."):
-    gdf_dept, gdf_epci = load_data_climat(chemin_dept, chemin_epci)
-
-xmin, ymin, xmax, ymax = gdf_epci.total_bounds
+# Configuration de la page web Streamlit (Prend tout l'écran)
+st.set_page_config(layout="wide")
 
 # ==============================================================================
-# 3. DONNÉES DE COULEURS (PR%) PAR DÉPARTEMENT
+# 1. CHARGEMENT ET SIMPLIFICATION DES DONNÉES
 # ==============================================================================
-departement_values = {
-    "59": 104, "62": 104, "02": 104, "08": 104, "57": 104, "67": 104, "68": 104, "54": 104, "55": 104, "88": 104,
-    "52": 104, "10": 104, "51": 104, "60": 100, "80": 100, "76": 104, "27": 104, "78": 100, "95": 100, "77": 100,
-    "93": 100, "94": 100, "75": 100, "92": 103, "91": 104, "29": 100, "22": 100, "35": 100, "56": 100, "14": 100,
-    "50": 100, "61": 100, "28": 104, "45": 100, "41": 100, "37": 100, "36": 100, "18": 100, "23": 100, "03": 100,
-    "58": 100, "71": 100, "21": 104, "89": 104, "70": 104, "25": 104, "39": 104, "90": 104, "44": 100, "49": 100,
-    "72": 100, "53": 100, "85": 100, "79": 100, "86": 100, "87": 100, "16": 104, "17": 104, "33": 100, "24": 104,
-    "19": 100, "15": 100, "43": 100, "63": 100, "47": 100, "40": 100, "64": 100, "32": 100, "82": 100, "46": 104,
-    "31": 100, "09": 85,  "65": 88,  "11": 100, "66": 100, "12": 100, "81": 100, "34": 104, "30": 104, "48": 104,
-    "13": 100, "83": 100, "06": 100, "84": 100, "04": 100, "05": 100, "26": 100, "07": 104, "69": 104, "42": 100,
-    "38": 100, "73": 100, "74": 105, "01": 104, "2A": 100, "2B": 100,
-}
+# Couche Départements
+chemin_dept = "departements.geojson"
+gdf_dept = gpd.read_file(chemin_dept)
+if gdf_dept.crs is not None:
+    gdf_dept = gdf_dept.to_crs(epsg=4326)
 
-colors_scale = ["#6b3a1f", "#a0672a", "#c8a96e", "#e8d9b5", "#f5f0e8", "#c8e8d8", "#8dd0c0", "#4db8a8", "#00897b"]
-index_vals = [65, 75, 85, 95, 100, 105, 115, 125, 135]
+# Couche EPCI
+chemin_epci = "epci-100m.geojson"
+gdf_epci = gpd.read_file(chemin_epci)
+if gdf_epci.crs is not None:
+    gdf_epci = gdf_epci.to_crs(epsg=4326)
 
-colormap = cm.LinearColormap(
-    colors=colors_scale, vmin=65, vmax=135, index=index_vals, caption="PR [%]"
-)
+# Sécurité anti-page blanche : Simplification des géométries
+gdf_epci["geometry"] = gdf_epci["geometry"].simplify(tolerance=0.008, preserve_topology=True)
+
+# Détection automatique des colonnes pour les Départements
+colonne_trouvee = "nom"
+for pour_chercher in ['nom', 'NOM', 'nom_dept', 'NOM_DEPT', 'Nom']:
+    if pour_chercher in gdf_dept.columns:
+        colonne_trouvee = pour_chercher
+        break
+
+# Détection automatique des colonnes pour les EPCI
+colonne_code_epci = "siren" if "siren" in gdf_epci.columns else ("code" if "code" in gdf_epci.columns else "CODE")
+colonne_nom_epci = "nom" if "nom" in gdf_epci.columns else ("NOM" if "NOM" in gdf_epci.columns else "NOM_EPCI")
 
 # ==============================================================================
-# 4. INITIALISATION DE LA CARTE
+# 2. INITIALISATION DE LA CARTE
 # ==============================================================================
-m = folium.Map(
-    tiles="cartodbpositron",
-    prefer_canvas=True, 
-)
-m.fit_bounds([[ymin, xmin], [ymax, xmax]])
+m = folium.Map(tiles="OpenStreetMap", prefer_canvas=True)
 
 Fullscreen(
     position="topleft",
-    title="Plein écran",
-    title_cancel="Quitter",
-    force_separate_button=True,
+    title="Passer en plein écran",
+    title_cancel="Quitter le plein écran",
+    force_separate_button=True
 ).add_to(m)
 
 # ==============================================================================
-# 5. CONFIGURATION DES COUCHES GRAPHIQUES
+# 3. STYLE DES DÉPARTEMENTS (VOS COULEURS EXACTES, ZÉRO CONTOUR)
 # ==============================================================================
+def determiner_style_dept(feature):
+    nom_actuel = str(feature['properties'].get(colonne_trouvee, ''))
+    code_actuel = str(feature['properties'].get('code', ''))
+    
+    # --- VIOLET (> 15%) ---
+    if (
+        "Landes" in nom_actuel or code_actuel == "40" or
+        "Var" in nom_actuel or code_actuel == "83" or
+        "Gard" in nom_actuel or code_actuel == "30" or
+        "Hérault" in nom_actuel or code_actuel == "34" or
+        "Gironde" in nom_actuel or code_actuel == "33" or
+        "Nord" in nom_actuel or code_actuel == "59" or
+        "Hauts-de-Seine" in nom_actuel or code_actuel == "92" or
+        "Val-de-Marne" in nom_actuel or code_actuel == "94" or
+        "Bouches-du-Rhône" in nom_actuel or code_actuel == "13" or
+        "Seine-Saint-Denis" in nom_actuel or code_actuel == "93" or
+        "Paris" in nom_actuel or code_actuel == "75" or
+        "Haute-Corse" in nom_actuel or code_actuel in ["2B", "2b"]
+    ):
+        couleur = "#4B0082"  # --- ROSE FUCHSIA (12 - 15%) ---
+    elif (
+        "Seine-Maritime" in nom_actuel or code_actuel == "76" or
+        "Eure" in nom_actuel or code_actuel == "27" or
+        "Somme" in nom_actuel or code_actuel == "80" or
+        "Pyrénées-Orientales" in nom_actuel or code_actuel == "66" or
+        "Aude" in nom_actuel or code_actuel == "11" or
+        "Doubs" in nom_actuel or code_actuel == "25" or
+        "Jura" in nom_actuel or code_actuel == "39" or
+        "Yvelines" in nom_actuel or code_actuel == "78" or
+        "Essonne" in nom_actuel or code_actuel == "91" or
+        "Vaucluse" in nom_actuel or code_actuel == "84" or
+        "Puy-de-Dôme" in nom_actuel or code_actuel == "63" or
+        "Côte-d'Or" in nom_actuel or code_actuel == "21" or
+        "Ain" in nom_actuel or code_actuel == "01" or
+        "Drôme" in nom_actuel or code_actuel == "26" or
+        "Isère" in nom_actuel or code_actuel == "38" or
+        "Corse-du-Sud" in nom_actuel or code_actuel in ["2A", "2a"]
+    ):
+        couleur = "#FF1493"  # --- ROSE NORMAL (9 - 12%) ---
+    elif (
+        "Hautes-Pyrénées" in nom_actuel or code_actuel == "65" or
+        "Loire-Atlantique" in nom_actuel or code_actuel == "44" or
+        "Vendée" in nom_actuel or code_actuel == "85" or
+        "Pas-de-Calais" in nom_actuel or code_actuel == "62" or
+        "Charente-Maritime" in nom_actuel or code_actuel == "17" or
+        "Alpes-Maritimes" in nom_actuel or code_actuel == "06" or
+        "Savoie" in nom_actuel or code_actuel == "73" or
+        "Aisne" in nom_actuel or code_actuel == "02" or
+        "Loiret" in nom_actuel or code_actuel == "45" or
+        "Oise" in nom_actuel or code_actuel == "60" or
+        "Deux-Sèvres" in nom_actuel or code_actuel == "79" or
+        "Charente" in nom_actuel or code_actuel == "16" or
+        "Lot" in nom_actuel or code_actuel == "46" or
+        "Aube" in nom_actuel or code_actuel == "10" or
+        "Indre" in nom_actuel or code_actuel == "36" or
+        "Hautes-Alpes" in nom_actuel or code_actuel == "05" or
+        "Lozère" in nom_actuel or code_actuel == "48" or
+        "Ardèche" in nom_actuel or code_actuel == "07" or
+        "Cher" in nom_actuel or code_actuel == "18" or
+        "Haute-Loire" in nom_actuel or code_actuel == "43"
+    ):
+        couleur = "#FF69B4"
+         
+    # --- ROSE CLAIR (6 - 9%) ---
+    elif (
+        "Gers" in nom_actuel or code_actuel == "32" or
+        "Pyrénées-Atlantiques" in nom_actuel or code_actuel == "64" or
+        "Dordogne" in nom_actuel or code_actuel == "24" or
+        "Finistère" in nom_actuel or code_actuel == "29" or
+        "Côtes-d'Armor" in nom_actuel or code_actuel == "22" or
+        "Morbihan" in nom_actuel or code_actuel == "56" or
+        "Ille-et-Vilaine" in nom_actuel or code_actuel == "35" or
+        "Lot-et-Garonne" in nom_actuel or code_actuel == "47" or
+        "Calvados" in nom_actuel or code_actuel == "14" or
+        "Orne" in nom_actuel or code_actuel == "61" or
+        "Haute-Vienne" in nom_actuel or code_actuel == "87" or
+        "Creuse" in nom_actuel or code_actuel == "23" or
+        "Corrèze" in nom_actuel or code_actuel == "19" or
+        "Manche" in nom_actuel or code_actuel == "50" or
+        "Marne" in nom_actuel or code_actuel == "51" or
+        "Ariège" in nom_actuel or code_actuel == "09" or
+        "Haute-Garonne" in nom_actuel or code_actuel == "31" or
+        "Yonne" in nom_actuel or code_actuel == "89" or
+        "Loir-et-Cher" in nom_actuel or code_actuel == "41" or
+        "Tarn" in nom_actuel or code_actuel == "81" or
+        "Aveyron" in nom_actuel or code_actuel == "12" or
+        "Cantal" in nom_actuel or code_actuel == "15" or
+        "Mayenne" in nom_actuel or code_actuel == "53" or
+        "Sarthe" in nom_actuel or code_actuel == "72" or
+        "Maine-et-Loire" in nom_actuel or code_actuel == "49" or
+        "Haute-Saône" in nom_actuel or code_actuel == "70" or
+        "Haut-Rhin" in nom_actuel or code_actuel == "68" or
+        "Allier" in nom_actuel or code_actuel == "03" or
+        "Nièvre" in nom_actuel or code_actuel == "58" or
+        "Vienne" in nom_actuel or code_actuel == "86" or
+        "Indre-et-Loire" in nom_actuel or code_actuel == "37" or
+        "Alpes-de-Haute-Provence" in nom_actuel or code_actuel == "04" or
+        "Saône-et-Loire" in nom_actuel or code_actuel == "71" or
+        "Rhône" in nom_actuel or code_actuel == "69" or
+        "Loire" in nom_actuel or code_actuel == "42"
+    ):
+        couleur = "#FFB6C1"  # --- BEIGE ROSÉ (0%) ---
+    elif (
+        "Bas-Rhin" in nom_actuel or code_actuel == "67" or
+        "Moselle" in nom_actuel or code_actuel == "57" or
+        "Ardennes" in nom_actuel or code_actuel == "08" or
+        "Vosges" in nom_actuel or code_actuel == "88" or
+        "Meuse" in nom_actuel or code_actuel == "55"
+    ):
+        couleur = "#FFF5EE"
+    else:
+        couleur = "#f8f9fa"
 
-# --- A. Couche Départements ---
-def style_departement(feature):
-    dep_code = str(feature["properties"].get("code", ""))
-    value = departement_values.get(dep_code, 100)
     return {
-        "fillColor": colormap(value),
-        "fillOpacity": 0.85,
-        "color": "none",
+        "fillColor": couleur,
+        "fillOpacity": 0.85 if couleur != "#f8f9fa" else 0.4,
         "weight": 0,
+        "color": "none"
     }
 
 folium.GeoJson(
     gdf_dept,
-    name="Couleurs Précipitations (Dép)",
-    style_function=style_departement,
-    interactive=False,
+    name="Couleurs Départements (Fond)",
+    style_function=determiner_style_dept,
+    interactive=False
 ).add_to(m)
 
-# --- B. Couche EPCI ---
-def style_epci(feature):
-    return {"fillOpacity": 0, "color": "#111111", "weight": 0.5}
+# ==============================================================================
+# 4. COUCHE EPCI (CONTOURS BLANCS, SURVOL ET CLIC ROUGE)
+# ==============================================================================
+def style_base_epci(feature):
+    return {
+        "fillColor": "rgba(0,0,0,0)",
+        "fillOpacity": 0,
+        "color": "#FFFFFF",
+        "weight": 1.0
+    }
 
-def highlight_epci(feature):
-    return {"fillOpacity": 0.1, "color": "#FF0000", "weight": 2.0}
-
-tooltip_epci = folium.GeoJsonTooltip(
-    fields=["nom", "siren"], 
-    aliases=["Intercommunalité :", "Code SIREN :"], 
-    sticky=True
-)
+def style_highlight_epci(feature):
+    return {
+        "color": "#FF0000",
+        "weight": 2.5
+    }
 
 folium.GeoJson(
     gdf_epci,
     name="Contours EPCI",
-    style_function=style_epci,
-    highlight_function=highlight_epci,
-    tooltip=tooltip_epci,
+    style_function=style_base_epci,
+    highlight_function=style_highlight_epci,
+    tooltip=folium.GeoJsonTooltip(
+        fields=[colonne_nom_epci, colonne_code_epci],
+        aliases=["Intercommunalité :", "Code SIREN :"],
+        localize=True,
+        sticky=True
+    ),
+    popup=folium.GeoJsonPopup(
+        fields=[colonne_nom_epci, colonne_code_epci],
+        aliases=["Nom EPCI :", "Numéro SIREN :"],
+        localize=True
+    )
 ).add_to(m)
 
 # ==============================================================================
-# 6. HABILLAGE ET RENDU FINAL POUR STREAMLIT
+# 5. TITRE PRINCIPAL ET LÉGENDE DE LA CARTE (HTML / CSS NAtif)
 # ==============================================================================
-colormap.add_to(m)
-
-# Titre flottant injecté sur la carte
-title_html = """
-<div style="position: fixed; top: 15px; left: 70px; z-index: 9999; background: white; padding: 10px 14px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); font-family: Arial, sans-serif; max-width: 380px;">
-    <div style="font-size:12px; font-weight:bold; color:#222;">
-        Cumul annuel de précipitations : rapport (%) à référence 1976-2005<br>pour l'horizon lointain (2071-2100)
+html_titre_et_legende = """
+<div style="
+    position: fixed; 
+    top: 20px; right: 20px; width: 320px; height: auto; 
+    z-index:9999; font-family: Arial, sans-serif; font-size:13px;
+    background-color: white; padding: 15px; border-radius: 8px; 
+    box-shadow: 0 0 15px rgba(0,0,0,0.2); line-height: 1.5;
+">
+    <div style="font-weight: bold; font-size: 15px; margin-bottom: 8px; color: #333;">
+        Exposition au Risque de Ruissellement 
     </div>
-    <div style="font-size:11px; color:#555; margin-top:4px;">
-        Scénario d'émissions modérées (RCP4.5) — Découpage EPCI
+    <div style="font-size: 11px; color: #666; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 8px;">
+        Part communale moyenne extrapolée par département et maillage des intercommunalités (EPCI).
+    </div>
+    
+    <div style="font-weight: bold; margin-bottom: 8px; color: #444;">Légende :</div>
+    
+    <div style="display: flex; align-items: center; margin-bottom: 6px;">
+        <div style="width: 20px; height: 15px; background-color: #4B0082; border: 1px solid #310054; margin-right: 10px; border-radius: 2px;"></div>
+        <span>Supérieur à 15 %</span>
+    </div>
+    <div style="display: flex; align-items: center; margin-bottom: 6px;">
+        <div style="width: 20px; height: 15px; background-color: #FF1493; border: 1px solid #C71585; margin-right: 10px; border-radius: 2px;"></div>
+        <span>Entre 12 et 15 %</span>
+    </div>
+    <div style="display: flex; align-items: center; margin-bottom: 6px;">
+        <div style="width: 20px; height: 15px; background-color: #FF69B4; border: 1px solid #C71585; margin-right: 10px; border-radius: 2px;"></div>
+        <span>Entre 9 et 12 %</span>
+    </div>
+    <div style="display: flex; align-items: center; margin-bottom: 6px;">
+        <div style="width: 20px; height: 15px; background-color: #FFB6C1; border: 1px solid #FF91A4; margin-right: 10px; border-radius: 2px;"></div>
+        <span>Entre 6 et 9 %</span>
+    </div>
+    <div style="display: flex; align-items: center; margin-bottom: 6px;">
+        <div style="width: 20px; height: 15px; background-color: #FFF5EE; border: 1px solid #E6D7CE; margin-right: 10px; border-radius: 2px;"></div>
+        <span>0 %</span>
+    </div>
+    <div style="display: flex; align-items: center; margin-top: 10px; padding-top: 5px; border-top: 1px dashed #eee;">
+        <div style="width: 20px; height: 2px; background-color: #FFFFFF; border: 1px solid #bbb; margin-right: 10px;"></div>
+        <span style="font-size: 11px; color: #555;">Contours Blancs : Limites des EPCI</span>
     </div>
 </div>
 """
-m.get_root().html.add_child(folium.Element(title_html))
-folium.LayerControl().add_to(m)
+# Injection du bloc HTML dans la structure de la carte Folium
+m.get_root().html.add_child(folium.Element(html_titre_et_legende))
 
-# Rendu officiel via streamlit_folium
-st_folium(m, width="100%", height=700)
+# Cadrage
+m.fit_bounds(gdf_epci.total_bounds.tolist())
+
+# ==============================================================================
+# 6. RENDU WEB VIA STREAMLIT
+# ==============================================================================
+st_folium(m, width="100%", height=750)
