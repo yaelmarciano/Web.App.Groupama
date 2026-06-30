@@ -7,7 +7,7 @@ import streamlit as st
 from folium.plugins import Fullscreen
 from shapely.geometry import shape
 from streamlit_folium import st_folium
-from folium.plugins import Fullscreen, Search
+
 
 # =========================================================================
 # CONFIG STREAMLIT
@@ -145,13 +145,8 @@ folium.GeoJson(
 
 colormap.caption = "Risque inondation (1 = faible, 3 = élevé)"
 colormap.add_to(m)
-Search(
-    layer=layer,
-    geom_type="Polygon",
-    placeholder="Rechercher un EPCI (entrez le nom)",
-    search_label="search",
-    collapsed=False
-).add_to(m)
+
+
 # =========================================================================
 # 6. TITRE CARTE
 # =========================================================================
