@@ -1,7 +1,7 @@
-import json
-import streamlit as st
+import os
 import folium
-import branca.colormap as cm
+import geopandas as gpd
+import streamlit as st
 from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
@@ -12,89 +12,111 @@ st.set_page_config(layout="wide")
 st.title("Exposition au risque de ruissellement")
 
 # ==============================================================================
-# 2. CHARGEMENT GEOJSON (SANS GEOPANDAS => donc pas de shapely/pyproj/fiona)
+# 2. CHARGEMENT DONNÉES
 # ==============================================================================
-@st.cache_data
-def load_geojson():
-    with open("departements.geojson", "r", encoding="utf-8") as f:
-        departements = json.load(f)
 
-    with open("epci-100m.geojson", "r", encoding="utf-8") as f:
-        epci = json.load(f)
+chemin_dept = "departements.geojson"
+chemin_epci = "epci-100m.geojson"
 
-    return departements, epci
+gdf_dept = gpd.read_file(chemin_dept)
+gdf_epci = gpd.read_file(chemin_epci)
 
+if gdf_dept.crs is not None:
+    gdf_dept = gdf_dept.to_crs(epsg=4326)
 
-departements_geojson, epci_geojson = load_geojson()
+if gdf_epci.crs is not None:
+    gdf_epci = gdf_epci.to_crs(epsg=4326)
 
-# ==============================================================================
-# 3. DONNÉES (codes département → valeurs)
-# ==============================================================================
-departement_values = {
-    "59": 104, "62": 104, "02": 104, "08": 104, "57": 104, "67": 104,
-    "75": 100, "92": 103, "93": 100, "94": 100,
-    "33": 100, "34": 104, "13": 100, "06": 100,
-    "40": 100, "83": 100, "30": 104,
-    "2A": 100, "2B": 100
-}
-
-colors_scale = [
-    "#6b3a1f", "#a0672a", "#c8a96e", "#e8d9b5",
-    "#f5f0e8", "#c8e8d8", "#8dd0c0", "#4db8a8",
-    "#00897b"
-]
-
-index_vals = [65, 75, 85, 95, 100, 105, 115, 125, 135]
-
-colormap = cm.LinearColormap(
-    colors=colors_scale,
-    vmin=65,
-    vmax=135,
-    index=index_vals,
-    caption="Exposition (%)"
+gdf_epci["geometry"] = gdf_epci["geometry"].simplify(
+    tolerance=0.008,
+    preserve_topology=True
 )
 
+# Détection colonnes départements
+colonne_trouvee = "nom"
+for col in ["nom", "NOM", "nom_dept", "NOM_DEPT", "Nom"]:
+    if col in gdf_dept.columns:
+        colonne_trouvee = col
+        break
+
+# EPCI colonnes
+colonne_code_epci = "siren" if "siren" in gdf_epci.columns else "code"
+colonne_nom_epci = "nom" if "nom" in gdf_epci.columns else "NOM"
+
 # ==============================================================================
-# 4. CARTE FOLIUM
+# 3. CARTE
 # ==============================================================================
+
 m = folium.Map(
     location=[46.6, 2.5],
     zoom_start=6,
-    tiles="cartodbpositron",
+    tiles="OpenStreetMap",
     prefer_canvas=True
 )
 
-Fullscreen(
-    position="topleft",
-    title="Plein écran",
-    title_cancel="Quitter",
-    force_separate_button=True
-).add_to(m)
+Fullscreen().add_to(m)
 
 # ==============================================================================
-# 5. STYLE DÉPARTEMENTS
+# 4. STYLE DÉPARTEMENTS (TES COULEURS CONSERVÉES)
 # ==============================================================================
+
 def style_dept(feature):
-    code = feature["properties"].get("code", "")
-    value = departement_values.get(code, 100)
+    nom = str(feature["properties"].get(colonne_trouvee, ""))
+    code = str(feature["properties"].get("code", ""))
+
+    # VIOLET
+    if (
+        "Landes" in nom or code == "40" or
+        "Var" in nom or code == "83" or
+        "Gard" in nom or code == "30" or
+        "Hérault" in nom or code == "34" or
+        "Gironde" in nom or code == "33" or
+        "Nord" in nom or code == "59" or
+        "Paris" in nom or code == "75"
+    ):
+        couleur = "#4B0082"
+
+    # ROSE FUCHSIA
+    elif (
+        "Seine-Maritime" in nom or code == "76" or
+        "Eure" in nom or code == "27"
+    ):
+        couleur = "#FF1493"
+
+    # ROSE
+    elif (
+        "Hautes-Pyrénées" in nom or code == "65" or
+        "Loire-Atlantique" in nom or code == "44"
+    ):
+        couleur = "#FF69B4"
+
+    # BEIGE
+    elif (
+        "Gers" in nom or code == "32" or
+        "Finistère" in nom or code == "29"
+    ):
+        couleur = "#FFB6C1"
+
+    else:
+        couleur = "#f8f9fa"
 
     return {
-        "fillColor": colormap(value),
+        "fillColor": couleur,
         "fillOpacity": 0.85,
-        "color": "none",
-        "weight": 0
+        "weight": 0,
+        "color": "none"
     }
 
 folium.GeoJson(
-    departements_geojson,
-    name="Départements",
+    gdf_dept,
     style_function=style_dept,
-    interactive=False
+    name="Départements"
 ).add_to(m)
 
 # ==============================================================================
-# 6. EPCI (simple + stable)
+# 5. EPCI (CORRIGÉ POUR STREAMLIT = PAS DE CRASH)
 # ==============================================================================
+
 def style_epci(feature):
     return {
         "fillOpacity": 0,
@@ -109,41 +131,43 @@ def highlight_epci(feature):
     }
 
 folium.GeoJson(
-    epci_geojson,
-    name="EPCI",
+    gdf_epci,
     style_function=style_epci,
-    highlight_function=highlight_epci,
-    tooltip=folium.GeoJsonTooltip(
-        fields=["nom", "siren"],
-        aliases=["Intercommunalité :", "SIREN :"]
-    )
+    highlight_function=highlight_epci
 ).add_to(m)
 
 # ==============================================================================
-# 7. LÉGENDE
+# 6. LÉGENDE HTML (TON STYLE CONSERVÉ)
 # ==============================================================================
-colormap.add_to(m)
 
-title_html = """
+html_legende = """
 <div style="
 position: fixed;
-top: 15px;
-left: 60px;
+top: 20px;
+right: 20px;
 z-index:9999;
 background:white;
-padding:10px;
-border-radius:6px;
-box-shadow:0 2px 8px rgba(0,0,0,0.2);
-font-size:12px;
+padding:15px;
+border-radius:8px;
+box-shadow:0 0 15px rgba(0,0,0,0.2);
+font-size:13px;
+width:300px;
 ">
-<b>Risque de ruissellement</b><br>
-Exposition départementale (%)
+<b>Exposition au ruissellement</b><br><br>
+
+<div>■ violet : >15%</div>
+<div>■ rose foncé : 12-15%</div>
+<div>■ rose : 9-12%</div>
+<div>■ beige : 6-9%</div>
+<div>■ fond : 0%</div>
+
 </div>
 """
 
-m.get_root().html.add_child(folium.Element(title_html))
+m.get_root().html.add_child(folium.Element(html_legende))
 
 # ==============================================================================
-# 8. AFFICHAGE STREAMLIT
+# 7. AFFICHAGE STREAMLIT
 # ==============================================================================
-st_folium(m, width=None, height=800)
+
+st_folium(m, width=1000, height=800)
