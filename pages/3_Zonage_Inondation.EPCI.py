@@ -124,7 +124,7 @@ def style_function(feature):
     }
 
 
-# 🔥 CONTOUR ROUGE AU SURVOL / CLIC VISUEL
+# CONTOUR ROUGE AU SURVOL / CLIC VISUEL
 def highlight_function(feature):
     return {
         "color": "#FF0000",
