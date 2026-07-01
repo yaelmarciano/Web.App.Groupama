@@ -17,6 +17,23 @@ from streamlit_folium import st_folium
 st.set_page_config(layout="wide")
 st.title("Carte interactive des arrêtés CatNat par Intercommunalité")
 st.subheader("Période 2000-2026 | Péril : Inondations et Coulées de Boue")
+st.markdown(
+    """
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:10px;
+        line-height:1.4;
+    ">
+    Données : arrêtés CatNat issus de la base officielle CCR (Caisse Centrale de Réassurance),  
+    compilés à partir de la liste des arrêtés de reconnaissance de l’état de catastrophe naturelle.  
+    Traitement réalisé par agrégation des arrêtés pour le péril « Inondations et / ou Coulées de Boue »  
+    sur la période 2000–2026, regroupés par EPCI.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # =========================================================================
 # 1. CSV
