@@ -5,10 +5,10 @@ import streamlit as st
 from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
+# Le titre de votre page Streamlit
+st.title("Zonage Inondation par EPCI")
 
-st.title("Carte Interactive : Zonage Inondation par EPCI")
-
-# 1. Chargement des données avec mise en cache pour la rapidité
+# 1. Chargement des données avec mise en cache (Correction Encodage Latin1)
 
 
 @st.cache_data
@@ -16,9 +16,10 @@ def load_data():
     df = pd.read_csv(
         "BASE_IRIS.csv",
         sep=";",
-        encoding="utf-8-sig",
+        encoding="latin1",  # Réglé sur 'latin1' pour lire le CSV issu d'Excel Windows
         dtype={"epci_code": str},
     )
+    # Convertir en nombre entier pour éviter les bugs de couleur
     df["ZONIER INONDATION"] = df["ZONIER INONDATION"].astype(int)
     return df
 
@@ -29,6 +30,7 @@ def load_geojson():
         return json.load(f)
 
 
+# Chargement effectif des fichiers
 df_epci = load_data()
 geojson_epci = load_geojson()
 
@@ -57,7 +59,7 @@ couleurs_dict = {
 
 def style_function(feature):
     code_geojson = feature["properties"].get("code")
-    couleur = couleurs_dict.get(code_geojson, "#bdc3c7")
+    couleur = couleurs_dict.get(code_geojson, "#bdc3c7")  # Gris par défaut
 
     return {
         "fillColor": couleur,
@@ -74,7 +76,7 @@ folium.GeoJson(
     tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["EPCI: "]),
 ).add_to(m)
 
-# 5. Ajouter la légende HTML directement avec le titre corrigé EN GRAS
+# 5. Ajouter la légende HTML directement avec le titre en GRAS
 html_legende = """
 <div style="
     position: fixed; 
@@ -96,5 +98,5 @@ html_legende = """
 """
 m.get_root().html.add_child(folium.Element(html_legende))
 
-# 6. Afficher la carte dans Streamlit
+# 6. Afficher la carte dans votre page Streamlit
 st_folium(m, use_container_width=True, height=700)
