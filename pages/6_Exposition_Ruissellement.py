@@ -47,7 +47,7 @@ st.title("Exposition au ruissellement")
 st.markdown(
     """
 <div style="font-size:13px; color:grey; margin-top:-10px; margin-bottom:18px;">
-Source : carte de la <b>part de surface communale exposée au risque d'inondation par ruissellement</b> produite par la <b>CCR (Caisse Centrale de Réassurance)</b>. Les couleurs affichées correspondent à la classe majoritaire observée pour chaque département à partir de cette carte, puis les contours des intercommunalités (EPCI) ont été superposés afin de permettre une lecture à cette échelle.
+Données : carte de la <b>part de surface communale exposée au risque d'inondation par ruissellement</b> produite par la <b>CCR (Caisse Centrale de Réassurance)</b>. Les couleurs affichées correspondent à la classe majoritaire observée pour chaque département à partir de cette carte, puis les contours des intercommunalités (EPCI) ont été superposés afin de permettre une lecture à cette échelle.
 </div>
 """,
     unsafe_allow_html=True,
