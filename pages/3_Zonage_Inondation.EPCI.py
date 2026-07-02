@@ -5,10 +5,6 @@ import streamlit as st
 from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
-# Configuration de la page Streamlit (Largeur maximale)
-st.set_page_config(
-    page_title="Zonage Inondation EPCI", page_layout="wide"
-)
 
 st.title("Carte Interactive : Zonage Inondation par EPCI")
 
