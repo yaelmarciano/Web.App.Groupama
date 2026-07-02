@@ -9,7 +9,7 @@ from streamlit_folium import st_folium
 # PAGE STREAMLIT
 # ======================
 st.set_page_config(layout="wide")
-st.title("Carte interactive des EPCI (Établissements Public de Coopération Intercommunale)")
+st.title("Carte interactive des Établissements Publics de Coopération Intercommunale (EPCI)")
 
 # ======================
 # 🔎 SOURCE DES DONNÉES (Markdown propre)
