@@ -2,7 +2,7 @@
 import streamlit as st
 import geopandas as gpd
 import folium
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components  # Pour l'affichage HTML direct
 from folium.plugins import Fullscreen
 
 # 1. Configuration de la page web Streamlit
@@ -13,7 +13,7 @@ st.title("Cartographie Interactive des Axes de Ruissellement par EPCI")
 CHEMIN_EPCI = "epci-100m.geojson"
 CHEMIN_RUISSELLEMENT = "axes_super_legers.geojson"
 
-# 2. Chargement des données standard (sans pyogrio)
+# 2. Chargement des données standard
 @st.cache_data
 def charger_donnees():
     gdf_epci = gpd.read_file(CHEMIN_EPCI)
@@ -36,8 +36,9 @@ with st.spinner("Chargement des cartes en cours..."):
         st.error(f"Erreur technique lors du chargement : {e}")
         st.stop()
 
-# 3. Création de la carte Folium
-m = folium.Map(tiles="OpenStreetMap")
+# 3. Création de la carte Folium (On centre manuellement sur le département de la Somme pour éviter les bugs)
+# Coordonnées moyennes de la Somme : Latitude 49.9, Longitude 2.3
+m = folium.Map(location=[49.9, 2.3], zoom_start=9, tiles="OpenStreetMap")
 
 # Bouton Plein Écran
 Fullscreen(
@@ -79,11 +80,12 @@ folium.GeoJson(
     }
 ).add_to(m)
 
-# Centrage automatique
-m.fit_bounds(gdf_ruissellement.total_bounds.tolist())
-
 # Menu des couches
 folium.LayerControl().add_to(m)
 
-# 4. Affichage final adapté à l'écran (Ligne corrigée !)
-st_folium(m, use_container_width=True, height=650)
+# 4. Affichage final via composants HTML (Zéro bug possible)
+# On transforme la carte en texte HTML brut
+carte_html = m._repr_html_()
+
+# On l'affiche de force dans Streamlit
+components.html(carte_html, height=700, scrolling=True)
