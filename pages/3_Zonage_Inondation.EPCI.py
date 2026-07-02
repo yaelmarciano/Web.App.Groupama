@@ -6,7 +6,7 @@ from folium.plugins import Fullscreen, Search  # Import de Search ici
 from streamlit_folium import st_folium
 
 # Le titre de votre page Streamlit
-st.title("Zonage Inondation par EPCI (Établissements Public de Coopération Intercommunale)")
+st.title("Zonage Inondation par Établissement Public de Coopération Intercommunale (EPCI)")
 #  SOUS-TITRE AVEC VOTRE PHRASE MÉTHODOLOGIQUE COMPLÈTE
 st.markdown(
     """
