@@ -15,7 +15,7 @@ from streamlit_folium import st_folium
 # CONFIG STREAMLIT
 # =========================================================================
 st.set_page_config(layout="wide")
-st.title("Carte interactive des arrêtés CatNat par EPCI (Établissements Public de Coopération Intercommunale)")
+st.title("Carte interactive des arrêtés CatNat par Établissement Public de Coopération Intercommunale (EPCI)")
 st.subheader("Période 2000-2026 | Péril : Inondations et Coulées de Boue")
 st.markdown(
     """
