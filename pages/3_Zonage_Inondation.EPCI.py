@@ -6,7 +6,7 @@ from folium.plugins import Fullscreen, Search  # Import de Search ici
 from streamlit_folium import st_folium
 
 # Le titre de votre page Streamlit
-st.title("Carte Interactive : Zonage Inondation par EPCI")
+st.title("Zonage Inondation par EPCI (Établissement Public de Coopération Intercommunale)")
 #  SOUS-TITRE AVEC VOTRE PHRASE MÉTHODOLOGIQUE COMPLÈTE
 st.markdown(
     """
@@ -17,11 +17,10 @@ st.markdown(
         line-height:1.5;
         text-align: justify;
     ">
-    <strong>Données :</strong> Données internes Groupama. Le zonage inondation est initialement défini à la maille IRIS. 
+    Données :</strong> Données internes Groupama. Le zonage inondation est initialement défini à la maille IRIS. 
     Afin de refléter une approche prudente du risque, la valeur maximale a été successivement conservée à la maille communale, 
     puis à la maille EPCI. Ainsi, il suffit qu'une seule IRIS soit classée en risque maximal (3 - Rouge) pour que l'ensemble de son EPCI 
     apparaisse en rouge sur la carte.<br>
-    <strong>Technique :</strong> Cartographie interactive au survol réalisée avec les bibliothèques <em>Folium</em> (Choroplèthe) et <em>Streamlit</em>.
     </div>
     """,
     unsafe_allow_html=True,
