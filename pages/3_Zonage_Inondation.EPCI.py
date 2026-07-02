@@ -2,15 +2,13 @@ import json
 import folium
 import pandas as pd
 import streamlit as st
-from folium.plugins import Fullscreen
+from folium.plugins import Fullscreen, Search  # Import de Search ici
 from streamlit_folium import st_folium
 
 # Le titre de votre page Streamlit
 st.title("Carte Interactive : Zonage Inondation par EPCI")
 
 # 1. Chargement des données avec mise en cache (Correction Encodage Latin1)
-
-
 @st.cache_data
 def load_data():
     df = pd.read_csv(
@@ -22,12 +20,10 @@ def load_data():
     df["ZONIER INONDATION"] = df["ZONIER INONDATION"].astype(int)
     return df
 
-
 @st.cache_data
 def load_geojson():
     with open("epci-100m.geojson", "r", encoding="utf-8") as f:
         return json.load(f)
-
 
 # Chargement effectif des fichiers
 df_epci = load_data()
@@ -55,7 +51,6 @@ couleurs_dict = {
     for _, row in df_epci.iterrows()
 }
 
-
 def style_function(feature):
     code_geojson = feature["properties"].get("code")
     couleur = couleurs_dict.get(code_geojson, "#bdc3c7")
@@ -63,32 +58,40 @@ def style_function(feature):
     return {
         "fillColor": couleur,
         "color": "black",
-        "weight": 0.5,  # Bordure fine par défaut
+        "weight": 0.5,
         "fillOpacity": 0.7,
     }
 
-
-#  AJOUT : Fonction qui met en gras noir l'EPCI survolé
 def highlight_function(feature):
     return {
-        "weight": 3,  # Épaisseur de la bordure en gras
-        "color": "black",  # Couleur noire pour le contour
-        "fillOpacity": 0.9,  # Légèrement plus opaque au survol
+        "weight": 3,
+        "color": "black",
+        "fillOpacity": 0.9,
     }
 
+# 4. Créer un calque et ajouter les contours GeoJSON avec survol et recherche
+layer_epci = folium.FeatureGroup(name="EPCI").add_to(m)
 
-# 4. Ajouter les contours GeoJSON avec survol amélioré (Nom + Code)
-folium.GeoJson(
+geo = folium.GeoJson(
     geojson_epci,
     style_function=style_function,
-    highlight_function=highlight_function,  #  On applique l'effet de survol ici
+    highlight_function=highlight_function,
     tooltip=folium.GeoJsonTooltip(
-        fields=["code", "nom"],  #  On demande d'afficher le Code ET le Nom
-        aliases=["Code EPCI: ", "Nom EPCI: "],  # Le texte qui s'affiche devant
+        fields=["code", "nom"],
+        aliases=["Code EPCI: ", "Nom EPCI: "],
         style=(
             "background-color: white; color: #333333; font-family: sans-serif; font-size: 13px; padding: 10px;"
         ),
     ),
+).add_to(layer_epci)
+
+# Intégration de la barre de recherche
+Search(
+    layer=layer_epci,
+    geom_type="Polygon",
+    search_label="nom",
+    placeholder="🔎 Rechercher un EPCI...",
+    collapsed=False
 ).add_to(m)
 
 # 5. Ajouter la légende HTML directement avec le titre en GRAS
