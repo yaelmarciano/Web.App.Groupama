@@ -105,7 +105,7 @@ folium.GeoJson(
 Search(
     layer=geojson_epci,
     geom_type="Polygon",
-    placeholder="Rechercher un EPCI (entrez le nom)",
+    placeholder=" 🔎 Rechercher un EPCI (entrez le nom)",
     search_label="search",
     collapsed=False,
 ).add_to(m)
