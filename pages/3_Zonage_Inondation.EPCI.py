@@ -1,188 +1,104 @@
 import json
-import branca.colormap as cm
 import folium
-import geopandas as gpd
 import pandas as pd
 import streamlit as st
-from folium.plugins import Fullscreen, Search
 from folium.plugins import Fullscreen
-from shapely.geometry import shape
 from streamlit_folium import st_folium
 
-
-# =========================================================================
-# CONFIG STREAMLIT
-# =========================================================================
-st.set_page_config(layout="wide")
-st.title("Zonage Risque Inondation par Intercommunalité")
-st.subheader("Score moyen de risque à l'échelle nationale")
-st.markdown(
-    """
-    <div style="
-        font-size:12px;
-        color:#666;
-        margin-bottom:10px;
-        line-height:1.4;
-    ">
-    Données : zonage interne Groupama du risque inondation à la maille IRIS.  
-    Les scores ont été agrégés par moyenne à la maille communale, puis à la maille intercommunale (EPCI) afin de produire un indicateur homogène de risque à l’échelle nationale.
-    </div>
-    """,
-    unsafe_allow_html=True
+# Configuration de la page Streamlit (Largeur maximale)
+st.set_page_config(
+    page_title="Zonage Inondation EPCI", page_layout="wide"
 )
 
-# =========================================================================
-# 1. CSV
-# =========================================================================
-@st.cache_data
-def load_csv():
-    chemin_csv = "Zonage.Inondation_epci.csv"
-    encodages = ["utf-8", "cp1252", "latin1"]
-    df = None
+st.title("Carte Interactive : Zonage Inondation par EPCI")
 
-    for enc in encodages:
-        try:
-            df = pd.read_csv(chemin_csv, sep=None, engine="python", encoding=enc)
-            break
-        except Exception:
-            continue
+# 1. Chargement des données avec mise en cache pour la rapidité
+
+
+@st.cache_data
+def load_data():
+    df = pd.read_csv(
+        "BASE_IRIS.csv",
+        sep=";",
+        encoding="utf-8-sig",
+        dtype={"epci_code": str},
+    )
+    df["ZONIER INONDATION"] = df["ZONIER INONDATION"].astype(int)
     return df
 
 
-df_score = load_csv()
-
-if df_score is None:
-    st.error("Impossible de lire le CSV")
-    st.stop()
-
-df_score.columns = df_score.columns.str.strip()
-
-nom_colonne_score = "zonier_inondation_moyenne"
-df_score[nom_colonne_score] = pd.to_numeric(df_score[nom_colonne_score], errors="coerce")
-
-df_score["epci_code"] = df_score["epci_code"].astype(str)
-
-# =========================================================================
-# 2. GEOJSON
-# =========================================================================
 @st.cache_data
 def load_geojson():
     with open("epci-100m.geojson", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    return gpd.GeoDataFrame(
-        [
-            {
-                "epci_code": str(feat["properties"]["code"]).strip(),
-                "nom": feat["properties"]["nom"],
-                "geometry": shape(feat["geometry"]),
-            }
-            for feat in data["features"]
-        ],
-        crs="EPSG:4326",
-    )
+        return json.load(f)
 
 
-gdf = load_geojson()
+df_epci = load_data()
+geojson_epci = load_geojson()
 
-# =========================================================================
-# 3. FUSION
-# =========================================================================
-gdf = gdf.merge(df_score, on="epci_code", how="left")
-gdf["nom"] = gdf["nom"].astype(str)
-gdf["epci_code"] = gdf["epci_code"].astype(str)
-gdf["search"] = gdf["nom"] + " " + gdf["epci_code"]
-
-# =========================================================================
-# 4. CARTE
-# =========================================================================
-xmin, ymin, xmax, ymax = gdf.total_bounds
-
-m = folium.Map(tiles="cartodbpositron", zoom_control=True)
-m.fit_bounds([[ymin, xmin], [ymax, xmax]])
-
-Fullscreen(position="topleft").add_to(m)
-
-colormap = cm.LinearColormap(colors=["green", "yellow", "red"], vmin=1, vmax=3)
-
-# =========================================================================
-# 5. STYLE + HIGHLIGHT (IMPORTANT ICI)
-# =========================================================================
-def style_function(feature):
-    score = feature["properties"].get("zonier_inondation_moyenne")
-
-    if pd.isna(score) or score is None:
-        color = "#cccccc"
-    else:
-        color = colormap(score)
-
-    return {
-        "fillColor": color,
-        "color": "#444444",
-        "weight": 0.6,
-        "fillOpacity": 0.75,
-    }
-
-
-# CONTOUR ROUGE AU SURVOL / CLIC VISUEL
-def highlight_function(feature):
-    return {
-        "color": "#FF0000",
-        "weight": 3,
-        "fillOpacity": 0.85,
-    }
-
-
-tooltip = folium.GeoJsonTooltip(
-    fields=["nom", "epci_code", "zonier_inondation_moyenne"],
-    aliases=["Nom EPCI :", "Code EPCI :", "Score inondation :"],
-    sticky=True,
+# 2. Créer la carte Folium centrée sur la France
+m = folium.Map(
+    location=[46.603354, 1.888334], zoom_start=6, tiles="OpenStreetMap"
 )
 
-geojson_layer = folium.GeoJson(
-    gdf,
+# Option Plein Écran
+Fullscreen(
+    title="Passer en plein écran",
+    title_cancel="Quitter le plein écran",
+    force_separate_button=True,
+).add_to(m)
+
+# 3. Définir la fonction de couleur (1 -> Vert, 2 -> Orange, 3 -> Rouge)
+couleurs_dict = {
+    row["epci_code"]: (
+        "#2ecc71"
+        if row["ZONIER INONDATION"] == 1
+        else "#e67e22" if row["ZONIER INONDATION"] == 2 else "#e74c3c"
+    )
+    for _, row in df_epci.iterrows()
+}
+
+
+def style_function(feature):
+    code_geojson = feature["properties"].get("code")
+    couleur = couleurs_dict.get(code_geojson, "#bdc3c7")
+
+    return {
+        "fillColor": couleur,
+        "color": "black",
+        "weight": 0.5,
+        "fillOpacity": 0.7,
+    }
+
+
+# 4. Ajouter les contours GeoJSON stylisés à la carte
+folium.GeoJson(
+    geojson_epci,
     style_function=style_function,
-    highlight_function=highlight_function,
-    tooltip=tooltip,
-    name="EPCI Inondation",
+    tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["EPCI: "]),
 ).add_to(m)
 
-colormap.caption = "Risque inondation (1 = faible, 3 = élevé)"
-colormap.add_to(m)
-
-Search(
-    layer=geojson_layer,
-    geom_type="Polygon",
-    placeholder="Rechercher un EPCI (entrez le nom)",
-    search_label="search",
-    collapsed=False,
-).add_to(m)
-# =========================================================================
-# 6. TITRE CARTE
-# =========================================================================
-titre_html = """
+# 5. Ajouter la légende HTML directement avec le titre corrigé EN GRAS
+html_legende = """
 <div style="
-    position: fixed;
-    top: 15px;
-    left: 70px;
-    width: 420px;
-    z-index: 9999;
+    position: fixed; 
+    bottom: 50px; left: 50px; width: 200px; height: 130px; 
+    z-index:9999; 
+    background-color: white;
+    padding: 12px;
+    border: 2px solid grey;
+    border-radius: 5px;
+    font-family: sans-serif;
     font-size: 14px;
-    background: white;
-    border: 2px solid #2c7fb8;
-    padding: 10px;
-    border-radius: 8px;
+    opacity: 0.9;
 ">
-<b>Zonage inondation par EPCI</b><br>
-<span style="font-size:11px; color:#555;">
-Score moyen de risque (1 = faible, 3 = élevé)
-</span>
+    <strong style="font-size: 15px; font-weight: bold; display: block; margin-bottom: 8px;">Zonage Inondation EPCI</strong>
+    <i style="background: #2ecc71; width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7;"></i> 1 - Zone Verte<br>
+    <i style="background: #e67e22; width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7;"></i> 2 - Zone Orange<br>
+    <i style="background: #e74c3c; width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7;"></i> 3 - Zone Rouge<br>
 </div>
 """
+m.get_root().html.add_child(folium.Element(html_legende))
 
-m.get_root().html.add_child(folium.Element(titre_html))
-
-# =========================================================================
-# 7. AFFICHAGE STREAMLIT
-# =========================================================================
-st_folium(m, width=1100, height=650, returned_objects=[])
+# 6. Afficher la carte dans Streamlit
+st_folium(m, use_container_width=True, height=700)
