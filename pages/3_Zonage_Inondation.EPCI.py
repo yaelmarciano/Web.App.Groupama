@@ -90,7 +90,7 @@ Search(
     layer=layer_epci,
     geom_type="Polygon",
     search_label="nom",
-    placeholder="🔎 Rechercher un EPCI...",
+    placeholder="🔎 Rechercher un EPCI (entrez le nom)",
     collapsed=False
 ).add_to(m)
 
