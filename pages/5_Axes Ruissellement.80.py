@@ -1,3 +1,4 @@
+
 import streamlit as st
 import geopandas as gpd
 import folium
@@ -15,7 +16,6 @@ CHEMIN_RUISSELLEMENT = "axes_super_legers.geojson"
 # 2. Chargement des données standard (sans pyogrio)
 @st.cache_data
 def charger_donnees():
-    # On retire 'engine="pyogrio"' pour utiliser le moteur classique par défaut
     gdf_epci = gpd.read_file(CHEMIN_EPCI)
     gdf_ruissellement = gpd.read_file(CHEMIN_RUISSELLEMENT)
 
@@ -85,5 +85,5 @@ m.fit_bounds(gdf_ruissellement.total_bounds.tolist())
 # Menu des couches
 folium.LayerControl().add_to(m)
 
-# 4. Affichage final dans Streamlit
-st_folium(m, width=1300, height=650)
+# 4. Affichage final adapté à l'écran (Ligne corrigée !)
+st_folium(m, use_container_width=True, height=650)
