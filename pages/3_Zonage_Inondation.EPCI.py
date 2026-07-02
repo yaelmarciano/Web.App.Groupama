@@ -6,7 +6,7 @@ from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 
 # Le titre de votre page Streamlit
-st.title("Zonage Inondation par EPCI")
+st.title("Carte Interactive : Zonage Inondation par EPCI")
 
 # 1. Chargement des données avec mise en cache (Correction Encodage Latin1)
 
@@ -16,10 +16,9 @@ def load_data():
     df = pd.read_csv(
         "BASE_IRIS.csv",
         sep=";",
-        encoding="latin1",  # Réglé sur 'latin1' pour lire le CSV issu d'Excel Windows
+        encoding="latin1",
         dtype={"epci_code": str},
     )
-    # Convertir en nombre entier pour éviter les bugs de couleur
     df["ZONIER INONDATION"] = df["ZONIER INONDATION"].astype(int)
     return df
 
@@ -59,21 +58,37 @@ couleurs_dict = {
 
 def style_function(feature):
     code_geojson = feature["properties"].get("code")
-    couleur = couleurs_dict.get(code_geojson, "#bdc3c7")  # Gris par défaut
+    couleur = couleurs_dict.get(code_geojson, "#bdc3c7")
 
     return {
         "fillColor": couleur,
         "color": "black",
-        "weight": 0.5,
+        "weight": 0.5,  # Bordure fine par défaut
         "fillOpacity": 0.7,
     }
 
 
-# 4. Ajouter les contours GeoJSON stylisés à la carte
+#  AJOUT : Fonction qui met en gras noir l'EPCI survolé
+def highlight_function(feature):
+    return {
+        "weight": 3,  # Épaisseur de la bordure en gras
+        "color": "black",  # Couleur noire pour le contour
+        "fillOpacity": 0.9,  # Légèrement plus opaque au survol
+    }
+
+
+# 4. Ajouter les contours GeoJSON avec survol amélioré (Nom + Code)
 folium.GeoJson(
     geojson_epci,
     style_function=style_function,
-    tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["EPCI: "]),
+    highlight_function=highlight_function,  #  On applique l'effet de survol ici
+    tooltip=folium.GeoJsonTooltip(
+        fields=["code", "nom"],  #  On demande d'afficher le Code ET le Nom
+        aliases=["Code EPCI: ", "Nom EPCI: "],  # Le texte qui s'affiche devant
+        style=(
+            "background-color: white; color: #333333; font-family: sans-serif; font-size: 13px; padding: 10px;"
+        ),
+    ),
 ).add_to(m)
 
 # 5. Ajouter la légende HTML directement avec le titre en GRAS
