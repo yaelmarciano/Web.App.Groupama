@@ -1,7 +1,7 @@
 import json
 import folium
 import branca.colormap as cm
-from folium.plugins import Fullscreen
+from folium.plugins import Fullscreen, Search
 import streamlit as st
 from streamlit_folium import st_folium
 # Configuration de la page Streamlit (Pour que la carte prenne toute la largeur)
@@ -169,17 +169,16 @@ def style_epci(feature):
     return {
         "fillColor": "white",
         "fillOpacity": 0.0,
-        "color": "#666666",   # Ligne grise par défaut pour les EPCI non cliqués
+        "color": "#666666",
         "weight": 1.0
     }
 
 def survol_epci(feature):
     return {
         "weight": 2.0,
-        "color": "#333333"
+        "color": "#999999"
     }
 
-# Création de la couche EPCI
 geo_json_layer = folium.GeoJson(
     geojson_epci,
     name="Contours EPCI",
@@ -198,48 +197,57 @@ geo_json_layer = folium.GeoJson(
     )
 )
 
-# 8. Script JavaScript
+# 8. Scripts JavaScript : clic = rouge persistant, survol = gris temporaire
 js_clic_epci = """
 function(e) {
     var layer = e.target;
-    
-    // 1. Remettre à zéro le style de tous les autres EPCI
     var parent = layer._eventParents;
     for (var id in parent) {
         if (parent[id]._layers) {
             for (var subId in parent[id]._layers) {
-                parent[id]._layers[subId].setStyle({
-                    'color': '#666666',
-                    'weight': 1.0
-                });
+                var l = parent[id]._layers[subId];
+                l.setStyle({'color': '#666666', 'weight': 1.0});
+                l._selected = false;
             }
         }
     }
-
-    // 2. Appliquer la couleur ROUGE sur l'EPCI sélectionné
-    layer.setStyle({
-        'color': '#FF0000',
-        'weight': 4.0
-    });
-    
-    // 3. Ouvrir manuellement le popup lié à cet EPCI
+    layer.setStyle({'color': '#FF0000', 'weight': 4.0});
+    layer._selected = true;
     layer.openPopup();
-    
     if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
         layer.bringToFront();
     }
 }
 """
 
+js_mouseout_epci = """
+function(e) {
+    var layer = e.target;
+    if (layer._selected) {
+        layer.setStyle({'color': '#FF0000', 'weight': 4.0});
+    }
+}
+"""
+
 geo_json_layer.add_child(folium.Element(f"""
     <script>
-        var layer = {geo_json_layer.get_name()};
-        layer.on('click', {js_clic_epci});
+        var couche_{geo_json_layer.get_name()} = {geo_json_layer.get_name()};
+        couche_{geo_json_layer.get_name()}.on('click', {js_clic_epci});
+        couche_{geo_json_layer.get_name()}.on('mouseout', {js_mouseout_epci});
     </script>
 """))
 
 geo_json_layer.add_to(m)
 
+# Barre de recherche EPCI (zoom auto sur l'EPCI tapé)
+Search(
+    layer=geo_json_layer,
+    geom_type="Polygon",
+    placeholder="🔎 Rechercher un EPCI (tapez le nom)",
+    search_label="nom",
+    collapsed=False,
+    position="topright",
+).add_to(m)
 # 9. AFFICHER LA CARTE DANS STREAMLIT (Modifié pour Streamlit)
 # use_container_width=True permet à la carte de prendre toute la largeur disponible
 st_folium(m, use_container_width=True, height=700)
