@@ -4,7 +4,23 @@ import branca.colormap as cm
 from folium.plugins import Fullscreen
 import streamlit as st
 from streamlit_folium import st_folium
-
+# Configuration de la page Streamlit (Pour que la carte prenne toute la largeur)
+st.set_page_config(layout="wide")
+st.title("Cumul hivernal de précipitations")
+st.subheader("Rapport à la référence 1976-2005 pour l'horizon lointain")
+st.markdown(
+    """
+    <div style="
+        font-size:12px;
+        color:#666;
+        margin-bottom:12px;
+        line-height:1.4;
+    ">
+    Données : carte élaborée à partir des simulations climatiques de <b>Météo-France</b> relatives au cumul hivernal de précipitations à l'horizon 2071-2100 (référence 1976-2005, scénario RCP4.5). Les contours des intercommunalités (EPCI), issus de <b>data.gouv.fr</b>, ont été superposés afin de permettre une lecture des projections climatiques à l'échelle intercommunale.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 st.set_page_config(layout="wide")
 
