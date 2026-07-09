@@ -160,7 +160,7 @@ geo_json_layer = folium.GeoJson(
         localize=True
     )
 )
-
+geo_json_layer.add_to(m)
 # 8. Barre de recherche EPCI (zoom auto sur l'EPCI tapé)
 Search(
     layer=geo_json_layer,
@@ -171,7 +171,7 @@ Search(
     position="topright",
 ).add_to(m)
 
-geo_json_layer.add_to(m)
+
 
 # 9. AFFICHER LA CARTE DANS STREAMLIT
 map_data = st_folium(
