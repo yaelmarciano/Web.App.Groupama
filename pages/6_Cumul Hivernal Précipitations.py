@@ -183,7 +183,6 @@ geo_json_layer = folium.GeoJson(
     geojson_epci,
     name="Contours EPCI",
     style_function=style_epci,
-    highlight_function=survol_epci,
     popup_on_click=False,
     tooltip=folium.GeoJsonTooltip(
         fields=["nom", "code"],
@@ -198,6 +197,8 @@ geo_json_layer = folium.GeoJson(
 )
 
 # 8. Scripts JavaScript : clic = rouge persistant, survol = gris temporaire
+
+
 js_clic_epci = """
 function(e) {
     var layer = e.target;
@@ -220,11 +221,22 @@ function(e) {
 }
 """
 
+js_mouseover_epci = """
+function(e) {
+    var layer = e.target;
+    if (!layer._selected) {
+        layer.setStyle({'color': '#999999', 'weight': 2.0});
+    }
+}
+"""
+
 js_mouseout_epci = """
 function(e) {
     var layer = e.target;
     if (layer._selected) {
         layer.setStyle({'color': '#FF0000', 'weight': 4.0});
+    } else {
+        layer.setStyle({'color': '#666666', 'weight': 1.0});
     }
 }
 """
@@ -233,12 +245,12 @@ geo_json_layer.add_child(folium.Element(f"""
     <script>
         var couche_{geo_json_layer.get_name()} = {geo_json_layer.get_name()};
         couche_{geo_json_layer.get_name()}.on('click', {js_clic_epci});
+        couche_{geo_json_layer.get_name()}.on('mouseover', {js_mouseover_epci});
         couche_{geo_json_layer.get_name()}.on('mouseout', {js_mouseout_epci});
     </script>
 """))
 
 geo_json_layer.add_to(m)
-
 # Barre de recherche EPCI (zoom auto sur l'EPCI tapé)
 Search(
     layer=geo_json_layer,
