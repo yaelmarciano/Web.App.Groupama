@@ -34,7 +34,7 @@ titre_html = """
             top: 10px; left: 50px; width: auto; height: auto; 
             background-color: white; border: 2px solid grey; z-index: 9999; 
             padding: 10px; font-size: 14px; font-weight: bold; border-radius: 5px;">
-    Cumuls hivernaux de précipitations : rapport (%) à référence 1976-2005<br>
+    Cumuls estivaux de précipitations : rapport (%) à référence 1976-2005<br>
     Pour l'horizon lointain (2071-2100)<br>
     <span style="font-weight: normal; font-size: 12px; color: #555;">
         Scénario d'émissions modérées (RCP4.5) — Découpage EPCI
