@@ -2,32 +2,11 @@ import json
 import streamlit as st
 import folium
 import branca.colormap as cm
-from folium.plugins import Fullscreen, Search
+# Ajout de Search ici
+from folium.plugins import Fullscreen, Search 
 from streamlit_folium import st_folium
 
-# Configuration de la page Streamlit (Largeur maximale)
-st.set_page_config(layout="wide")
-st.title("Cumul hivernal de précipitations")
-st.subheader("Rapport à la référence 1976-2005 pour l'horizon lointain")
-st.markdown(
-    """
-    <div style="
-        font-size:12px;
-        color:#666;
-        margin-bottom:12px;
-        line-height:1.4;
-    ">
-    Données : carte élaborée à partir des simulations climatiques de <b>Météo-France</b> relatives au cumul hivernal de précipitations à l'horizon 2071-2100 (référence 1976-2005, scénario RCP4.5). Les contours des intercommunalités (EPCI), issus de <b>data.gouv.fr</b>, ont été superposés afin de permettre une lecture des projections climatiques à l'échelle intercommunale.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# Mémoire de l'EPCI sélectionné (persiste entre les clics et rechargements)
-if "selected_epci" not in st.session_state:
-    st.session_state.selected_epci = None
-
-# 1. Charger les deux fichiers GeoJSON avec mise en cache Streamlit
+# 1. Charger les fichiers GeoJSON avec cache pour éviter les lenteurs au rechargement
 @st.cache_data
 def charger_geometries():
     with open("departements.geojson", "r", encoding="utf-8") as f:
@@ -41,7 +20,7 @@ geojson_departements, geojson_epci = charger_geometries()
 # 2. Créer la carte centrée sur la France
 m = folium.Map(location=[46.603354, 1.888334], zoom_start=6)
 
-# 3. Bouton Plein Écran
+# 3. Ajouter le bouton Plein Écran
 Fullscreen(
     position="topleft",
     title="Passer en plein écran",
@@ -49,13 +28,13 @@ Fullscreen(
     force_separate_button=True,
 ).add_to(m)
 
-# 4. Titre HTML inséré directement dans la carte
+# 4. Ajout du Titre HTML inséré dans la carte
 titre_html = """
 <div style="position: fixed; 
             top: 10px; left: 50px; width: auto; height: auto; 
             background-color: white; border: 2px solid grey; z-index: 9999; 
             padding: 10px; font-size: 14px; font-weight: bold; border-radius: 5px;">
-    Cumul hivernal de précipitations : rapport (%) à référence 1976-2005<br>
+    Cumuls hivernaux de précipitations : rapport (%) à référence 1976-2005<br>
     Pour l'horizon lointain (2071-2100)<br>
     <span style="font-weight: normal; font-size: 12px; color: #555;">
         Scénario d'émissions modérées (RCP4.5) — Découpage EPCI
@@ -72,56 +51,57 @@ colormap = cm.LinearColormap(
 )
 colormap.add_to(m)
 
-# 6. Listes pour la logique des couleurs par département
-deps_clair = [
-    "finistère", "finistere", "côtes-d'armor", "cotes-d'armor", "cote d'armor", "manche", "calvados",
-    "morbihan", "ille-et-vilaine", "ille et vilaine", "loire-atlantique", "loire atlantique", "vendée", "vendee",
-    "deux-sèvres", "deux sevres", "deux-sevres", "creuse", "haute-vienne", "haute vienne",
-    "pyrénées-orientales", "pyrenees-orientales", "pyrenne orientales", "marne", "landes",
-    "lot-et-garonne", "lot et garonnes", "lot et garonne", "gers", "lot",
-    "tarn-et-garonne", "tarn et garonnes", "tarn et garonne", "tarn", "aveyron", "lozère", "lozere", "loreze",
-    "cantal", "corrèze", "correze", "mayenne", "aude", "haute-garonne", "haute garonne", "orne", "eure",
-    "ardennes", "ardenne", "haute-savoie", "haute savoie", "haute-loire", "haute loire", "corse-du-sud", "corse du sud",
-    "yonne", "allier"
+# 6. Listes de départements par zones de couleur
+deps_75_85 = [
+    "morbihan", "loire-atlantique", "loire atlantique", "oure talantiqye",
+    "finistère", "finistere", "finisetre", "indre-et-loire", "indre et loire", "indree et loir",
+    "maine-et-loire", "maine et loire", "ille-et-vilaine", "ille et vilaine", "ile et villaine",
+    "sarthe", "mayenne", "moyenne", "haute-vienne", "haute vienne", "creuse", "landes",
+    "bouches-du-rhône", "bouches du rhone", "bouches du rhon", "var"
 ]
 
-deps_moyen = [
-    "pas-de-calais", "pas de calais", "nord", "somme", "aisne", "seine-maritime", "seine maritime", "oise",
-    "seine-et-marne", "seine et marne", "yvelines", "loiret", "loir-et-cher", "loir et cher", "vienne",
-    "bas-rhin", "bas rhin", "moselle", "meurthe-et-moselle", "meurthe et moselle", "vosges", "vosques",
-    "charente-maritime", "charente maritime", "charente", "dordogne", "essonne", "paris", "val-de-marne", "val de marne",
-    "val-d'oise", "val d'oise", "val doise", "hauts-de-seine", "hauts de seine", "haut sde sein e",
-    "seine-saint-denis", "seine saint dinis", "bouches-du-rhône", "bouches du rhone", "var",
-    "alpes-de-haute-provence", "alpes de haute provence", "meuse", "haute-saône", "haute saone",
-    "hautes-alpes", "hautes alpes", "jura", "doubs", "ain", "indre-et-loire", "indre et loire",
-    "eure-et-loir", "eure et loire", "gironde", "girondes", "ardèche", "ardeche", "gard", "sarthe", "srathe",
-    "maine-et-loire", "maine et loire", "maine et lore", "côte-d'or", "cote d'or", "cote dor", "haute-marne", "haute marne",
-    "isère", "isere", "drôme", "drome", "hérault", "herault", "haute-corse", "haute corse", "haute corsee",
-    "aube", "cher", "nièvre", "nievre", "saône-et-loire", "saone et loire", "puy-de-dôme", "puy de dome", "indre"
+deps_85_95 = [
+    "pas-de-calais", "pas de calais", "nord", "somme", "aisne", "seine-maritime", "seine maritime", 
+    "oise", "val-d'oise", "val d'oise", "val doise", "eure", "manche", "calvados", "eure-et-loir", 
+    "eure et loire", "eure et loir", "yvelines", "seine-saint-denis", "seine saint denis", 
+    "seine saint dinis", "paris", "val-de-marne", "val de marne", "hauts-de-seine", "hauts de seine", 
+    "haut sde sein e", "haut de seine", "ardennes", "ardenne", "marne", "marnes", "meuse", 
+    "meurthe-et-moselle", "meurthe et moselle", "côtes-d'armor", "cotes-d'armor", "cote d'armor", 
+    "cote darmor", "seine-et-marne", "seine et marne", "essonne", "essone", "orne", "loir-et-cher", 
+    "loir et cher", "yonne", "côte-d'or", "cote d'or", "cote dor", "nièvre", "nievre", "loiret", 
+    "aube", "indre", "saône-et-loire", "saone et loire", "jura", "deux-sèvres", "deux sevres", 
+    "deux-sevres", "vienne", "charente", "dordogne", "charente-maritime", "charente maritime", 
+    "charnete maritime", "corrèze", "correze", "allier", "puy-de-dôme", "puy de dome", "doubs", 
+    "cher", "vendée", "vendee", "hautes-pyrénées", "hautes pyrennes", "hautes-pyrenees", 
+    "pyrénées-atlantiques", "pyrennes atlantiques", "pyrenees-atlantiques", "gers", "haute-garonne", 
+    "haute garonne", "tarn", "aveyron", "aude", "gironde", "lot-et-garonne", "lot et garonne", 
+    "tarn-et-garonne", "tarn et garonne", "lot", "hérault", "herault", "gard", "alpes-de-haute-provence", 
+    "alpes de haute provence", "drôme", "drome", "savoie", "hautes-alpes", "hautes alpes", 
+    "pyrénées-orientales", "pyrennes orientales", "pyrenees-orientales", "alpes-maritimes", 
+    "alpes maritimes", "cantal", "lozère", "lozere", "vosges", "vosge", "isère", "isere", "ain", 
+    "hain", "haute-savoie", "haute savoie", "moselle", "bas-rhin", "bas rhin", "haute-saône", 
+    "haute saone", "haut saone", "vaucluse", "vauculse"
 ]
 
-deps_fonce = [
-    "territoire de belfort", "territoire-de-belfort", "belfort", "haut-rhin", "haut rhin", "vaucluse",
-    "alpes-maritimes", "alpes maritimes", "rhône", "rhone", "loire"
-]
-
-deps_blanc = [
-    "pyrénées-atlantiques", "pyrenees-atlantiques", "pyrenne atlantique", "hautes-pyrénées", "hautes-pyrenees", "haute pyrennes",
-    "ariège", "ariege", "savoie"
-]
-
+# 7. Style pour la couche départements
 def determiner_style(feature):
     nom_dep = feature['properties'].get('nom', '').lower()
-    if nom_dep in deps_clair:
-        return {"fillColor": "#c8e8d8", "color": "none", "weight": 0, "fillOpacity": 0.85}
-    elif nom_dep in deps_moyen:
-        return {"fillColor": "#4db8a8", "color": "none", "weight": 0, "fillOpacity": 0.85}
-    elif nom_dep in deps_fonce:
-        return {"fillColor": "#00897b", "color": "none", "weight": 0, "fillOpacity": 0.85}
-    elif nom_dep in deps_blanc:
-        return {"fillColor": "#ffffff", "color": "none", "weight": 0, "fillOpacity": 1.0}
+    if nom_dep in deps_75_85:
+        color_fill = "#a0672a"
+        fill_opacity = 0.85
+    elif nom_dep in deps_85_95:
+        color_fill = "#c8a96e"
+        fill_opacity = 0.85
     else:
-        return {"fillColor": "white", "color": "none", "weight": 0, "fillOpacity": 0.2}
+        color_fill = "#ffffff"
+        fill_opacity = 1.0
+
+    return {
+        "fillColor": color_fill,
+        "color": "none",
+        "weight": 0,
+        "fillOpacity": fill_opacity
+    }
 
 folium.GeoJson(
     geojson_departements,
@@ -130,18 +110,20 @@ folium.GeoJson(
     interactive=False
 ).add_to(m)
 
-# 7. Contours EPCI — le style dépend de la sélection active
+# 8. Ajouter les contours EPCI
 def style_epci(feature):
-    code = feature['properties'].get('code')
-    if st.session_state.selected_epci is not None and code == st.session_state.selected_epci:
-        return {"fillColor": "white", "fillOpacity": 0.0, "color": "#FF0000", "weight": 4.0}
-    return {"fillColor": "white", "fillOpacity": 0.0, "color": "#000000", "weight": 1.0}
+    return {
+        "fillColor": "white",
+        "fillOpacity": 0.0,
+        "color": "#000000",
+        "weight": 1.0
+    }
 
 def survol_epci(feature):
-    code = feature['properties'].get('code')
-    if st.session_state.selected_epci is not None and code == st.session_state.selected_epci:
-        return {"weight": 4.0, "color": "#FF0000"}
-    return {"weight": 2.0, "color": "#333333"}
+    return {
+        "weight": 2.5,
+        "color": "#333333"
+    }
 
 geo_json_layer = folium.GeoJson(
     geojson_epci,
@@ -161,7 +143,7 @@ geo_json_layer = folium.GeoJson(
     )
 )
 
-# Injection JavaScript pour forcer le clic sur la carte si besoin
+# 9. Script JavaScript : clic = contour rouge persistant
 js_clic_epci = """
 function(e) {
     var layer = e.target;
@@ -196,7 +178,7 @@ geo_json_layer.add_child(folium.Element(f"""
 
 geo_json_layer.add_to(m)
 
-# 8. BARRE DE RECHERCHE EPCI (Ajoutée à la carte avec zoom automatique)
+# 9.5 Barre de recherche ajoutée sur la couche EPCI
 Search(
     layer=geo_json_layer,
     geom_type="Polygon",
@@ -206,18 +188,5 @@ Search(
     position="topleft",
 ).add_to(m)
 
-# 9. AFFICHER LA CARTE DANS STREAMLIT
-map_data = st_folium(
-    m,
-    use_container_width=True,
-    height=700,
-    returned_objects=["last_active_drawing"]
-)
-
-# 10. Récupérer le clic et mettre à jour la sélection rouge
-if map_data and map_data.get("last_active_drawing"):
-    props = map_data["last_active_drawing"].get("properties", {})
-    code_clic = props.get("code")
-    if code_clic and code_clic != st.session_state.selected_epci:
-        st.session_state.selected_epci = code_clic
-        st.rerun()
+# 10. Affichage adaptatif de la carte dans Streamlit
+st_folium(m, use_container_width=True, height=750)
