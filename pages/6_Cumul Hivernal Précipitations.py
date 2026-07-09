@@ -165,10 +165,10 @@ geo_json_layer.add_to(m)
 Search(
     layer=geo_json_layer,
     geom_type="Polygon",
-    placeholder="🔎 Rechercher un EPCI (tapez le nom)",
+    placeholder="🔎 Rechercher un EPCI (entrezle nom)",
     search_label="nom",
     collapsed=False,
-    position="topright",
+    position="topleft",
 ).add_to(m)
 
 
