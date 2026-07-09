@@ -4,7 +4,8 @@ import branca.colormap as cm
 from folium.plugins import Fullscreen, Search
 import streamlit as st
 from streamlit_folium import st_folium
-# Configuration de la page Streamlit (Pour que la carte prenne toute la largeur)
+
+# Configuration de la page Streamlit
 st.set_page_config(layout="wide")
 st.title("Cumul hivernal de précipitations")
 st.subheader("Rapport à la référence 1976-2005 pour l'horizon lointain")
@@ -22,10 +23,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.set_page_config(layout="wide")
+# Mémoire de l'EPCI sélectionné (persiste entre les clics)
+if "selected_epci" not in st.session_state:
+    st.session_state.selected_epci = None
 
 # 1. Charger les deux fichiers geojson
-# Note pour GitHub : Assurez-vous que ces fichiers sont bien poussés à la racine ou au même niveau de votre repo
 with open("departements.geojson", "r", encoding="utf-8") as f:
     geojson_departements = json.load(f)
 
@@ -35,7 +37,7 @@ with open("epci-100m.geojson", "r", encoding="utf-8") as f:
 # 2. Créer la carte centrée sur la France
 m = folium.Map(location=[46.603354, 1.888334], zoom_start=6)
 
-# 3. Ajouter le bouton Plein Écran
+# 3. Bouton Plein Écran
 Fullscreen(
     position="topleft",
     title="Passer en plein écran",
@@ -43,7 +45,7 @@ Fullscreen(
     force_separate_button=True,
 ).add_to(m)
 
-# 4. Ajout du Titre HTML demandé
+# 4. Titre HTML
 titre_html = """
 <div style="position: fixed; 
             top: 10px; left: 50px; width: auto; height: auto; 
@@ -58,17 +60,10 @@ titre_html = """
 """
 m.get_root().html.add_child(folium.Element(titre_html))
 
-# 5. Ajout de la légende (Colormap) demandée
+# 5. Légende (Colormap)
 colors_scale = [
-    "#6b3a1f",
-    "#a0672a",
-    "#c8a96e",
-    "#e8d9b5",
-    "#f5f0e8",
-    "#c8e8d8",
-    "#8dd0c0",
-    "#4db8a8",
-    "#00897b",
+    "#6b3a1f", "#a0672a", "#c8a96e", "#e8d9b5", "#f5f0e8",
+    "#c8e8d8", "#8dd0c0", "#4db8a8", "#00897b",
 ]
 index_vals = [65, 75, 85, 95, 100, 105, 115, 125, 135]
 
@@ -77,7 +72,7 @@ colormap = cm.LinearColormap(
 )
 colormap.add_to(m)
 
-# 6. Listes pour la logique des couleurs (VOS LISTES EXACTES)
+# 6. Listes pour la logique des couleurs
 deps_clair = [
     "finistère", "finistere", "côtes-d'armor", "cotes-d'armor", "cote d'armor", "manche", "calvados",
     "morbihan", "ille-et-vilaine", "ille et vilaine", "loire-atlantique", "loire atlantique", "vendée", "vendee",
@@ -115,47 +110,20 @@ deps_blanc = [
     "ariège", "ariege", "savoie"
 ]
 
-# VOTRE FONCTION DE STYLE EXACTE
 def determiner_style(feature):
     nom_dep = feature['properties'].get('nom', '').lower()
     
     if nom_dep in deps_clair:
-        return {
-            "fillColor": "#c8e8d8",
-            "color": "none",
-            "weight": 0,
-            "fillOpacity": 0.85
-        }
+        return {"fillColor": "#c8e8d8", "color": "none", "weight": 0, "fillOpacity": 0.85}
     elif nom_dep in deps_moyen:
-        return {
-            "fillColor": "#4db8a8",
-            "color": "none",
-            "weight": 0,
-            "fillOpacity": 0.85
-        }
+        return {"fillColor": "#4db8a8", "color": "none", "weight": 0, "fillOpacity": 0.85}
     elif nom_dep in deps_fonce:
-        return {
-            "fillColor": "#00897b",
-            "color": "none",
-            "weight": 0,
-            "fillOpacity": 0.85
-        }
+        return {"fillColor": "#00897b", "color": "none", "weight": 0, "fillOpacity": 0.85}
     elif nom_dep in deps_blanc:
-        return {
-            "fillColor": "#ffffff",
-            "color": "none",
-            "weight": 0,
-            "fillOpacity": 1.0
-        }
+        return {"fillColor": "#ffffff", "color": "none", "weight": 0, "fillOpacity": 1.0}
     else:
-        return {
-            "fillColor": "white",
-            "color": "none",
-            "weight": 0,
-            "fillOpacity": 0.2
-        }
+        return {"fillColor": "white", "color": "none", "weight": 0, "fillOpacity": 0.2}
 
-# Ajouter le fond départemental
 folium.GeoJson(
     geojson_departements,
     name="Couleurs Départements",
@@ -163,26 +131,24 @@ folium.GeoJson(
     interactive=False
 ).add_to(m)
 
-
-# 7. Ajouter les contours EPCI transparents
+# 7. Contours EPCI — le style dépend de l'EPCI sélectionné en mémoire
 def style_epci(feature):
-    return {
-        "fillColor": "white",
-        "fillOpacity": 0.0,
-        "color": "#666666",
-        "weight": 1.0
-    }
+    code = feature['properties'].get('code')
+    if code == st.session_state.selected_epci:
+        return {"fillColor": "white", "fillOpacity": 0.0, "color": "#FF0000", "weight": 4.0}
+    return {"fillColor": "white", "fillOpacity": 0.0, "color": "#666666", "weight": 1.0}
 
 def survol_epci(feature):
-    return {
-        "weight": 2.0,
-        "color": "#999999"
-    }
+    code = feature['properties'].get('code')
+    if code == st.session_state.selected_epci:
+        return {"weight": 4.0, "color": "#FF0000"}
+    return {"weight": 2.0, "color": "#999999"}
 
 geo_json_layer = folium.GeoJson(
     geojson_epci,
     name="Contours EPCI",
     style_function=style_epci,
+    highlight_function=survol_epci,
     popup_on_click=False,
     tooltip=folium.GeoJsonTooltip(
         fields=["nom", "code"],
@@ -196,62 +162,7 @@ geo_json_layer = folium.GeoJson(
     )
 )
 
-# 8. Scripts JavaScript : clic = rouge persistant, survol = gris temporaire
-
-
-js_clic_epci = """
-function(e) {
-    var layer = e.target;
-    var parent = layer._eventParents;
-    for (var id in parent) {
-        if (parent[id]._layers) {
-            for (var subId in parent[id]._layers) {
-                var l = parent[id]._layers[subId];
-                l.setStyle({'color': '#666666', 'weight': 1.0});
-                l._selected = false;
-            }
-        }
-    }
-    layer.setStyle({'color': '#FF0000', 'weight': 4.0});
-    layer._selected = true;
-    layer.openPopup();
-    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-        layer.bringToFront();
-    }
-}
-"""
-
-js_mouseover_epci = """
-function(e) {
-    var layer = e.target;
-    if (!layer._selected) {
-        layer.setStyle({'color': '#999999', 'weight': 2.0});
-    }
-}
-"""
-
-js_mouseout_epci = """
-function(e) {
-    var layer = e.target;
-    if (layer._selected) {
-        layer.setStyle({'color': '#FF0000', 'weight': 4.0});
-    } else {
-        layer.setStyle({'color': '#666666', 'weight': 1.0});
-    }
-}
-"""
-
-geo_json_layer.add_child(folium.Element(f"""
-    <script>
-        var couche_{geo_json_layer.get_name()} = {geo_json_layer.get_name()};
-        couche_{geo_json_layer.get_name()}.on('click', {js_clic_epci});
-        couche_{geo_json_layer.get_name()}.on('mouseover', {js_mouseover_epci});
-        couche_{geo_json_layer.get_name()}.on('mouseout', {js_mouseout_epci});
-    </script>
-"""))
-
-geo_json_layer.add_to(m)
-# Barre de recherche EPCI (zoom auto sur l'EPCI tapé)
+# 8. Barre de recherche EPCI (zoom auto sur l'EPCI tapé)
 Search(
     layer=geo_json_layer,
     geom_type="Polygon",
@@ -260,6 +171,21 @@ Search(
     collapsed=False,
     position="topright",
 ).add_to(m)
-# 9. AFFICHER LA CARTE DANS STREAMLIT (Modifié pour Streamlit)
-# use_container_width=True permet à la carte de prendre toute la largeur disponible
-st_folium(m, use_container_width=True, height=700)
+
+geo_json_layer.add_to(m)
+
+# 9. AFFICHER LA CARTE DANS STREAMLIT
+map_data = st_folium(
+    m,
+    use_container_width=True,
+    height=700,
+    returned_objects=["last_active_drawing"]
+)
+
+# 10. Récupérer le clic et mettre à jour la sélection
+if map_data and map_data.get("last_active_drawing"):
+    props = map_data["last_active_drawing"].get("properties", {})
+    code_clic = props.get("code")
+    if code_clic and code_clic != st.session_state.selected_epci:
+        st.session_state.selected_epci = code_clic
+        st.rerun()
