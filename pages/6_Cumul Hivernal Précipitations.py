@@ -134,16 +134,15 @@ folium.GeoJson(
 # 7. Contours EPCI — le style dépend de l'EPCI sélectionné en mémoire
 def style_epci(feature):
     code = feature['properties'].get('code')
-    if code == st.session_state.selected_epci:
+    if st.session_state.selected_epci is not None and code == st.session_state.selected_epci:
         return {"fillColor": "white", "fillOpacity": 0.0, "color": "#FF0000", "weight": 4.0}
-    return {"fillColor": "white", "fillOpacity": 0.0, "color": "#666666", "weight": 1.0}
+    return {"fillColor": "white", "fillOpacity": 0.0, "color": "#000000", "weight": 1.0}
 
 def survol_epci(feature):
     code = feature['properties'].get('code')
-    if code == st.session_state.selected_epci:
+    if st.session_state.selected_epci is not None and code == st.session_state.selected_epci:
         return {"weight": 4.0, "color": "#FF0000"}
-    return {"weight": 2.0, "color": "#999999"}
-
+    return {"weight": 2.0, "color": "#333333"}
 geo_json_layer = folium.GeoJson(
     geojson_epci,
     name="Contours EPCI",
