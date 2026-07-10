@@ -165,7 +165,7 @@ geo_json_layer.add_to(m)
 Search(
     layer=geo_json_layer,
     geom_type="Polygon",
-    placeholder="🔎 Rechercher un EPCI (entrez le nom)",
+    placeholder="🔎 Rechercher un EPCI (entrezle nom)",
     search_label="nom",
     collapsed=False,
     position="topleft",
