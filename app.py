@@ -23,7 +23,9 @@ st.info("""
 * **Page 3 Carte Interactive**: Moyenne des zonages Inondation par EPCI
 * **Page 4 Carte Interactive**: Axes de ruissellement pour le Val d'Oise (95)
 * **Page 5 Carte Interactive**: Cumul annuel de précipitations modérées: rapport % à référence 1976-2005 pour l'horizon lointain (2071-2100)
-* **Page 7 Carte Interactive**: Exposition au Ruissellement
+* **Page 6 Carte Interactive**: Cumul hivernal de précipitations modérées: rapport % à référence 1976-2005 pour l'horizon lointain (2071-2100)
+* **Page 7 Carte Interactive**: Cumul estival de précipitations modérées: rapport % à référence 1976-2005 pour l'horizon lointain (2071-2100)
+* **Page 8 Carte Interactive**: Exposition au Ruissellement
 
 """)
 
